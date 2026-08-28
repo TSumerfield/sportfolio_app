@@ -1,0 +1,121 @@
+import { supabase } from "../supabase/client";
+
+export type LiveStudent = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  grade: string | null;
+};
+
+export type LiveClass = {
+  id: string;
+  name: string;
+  academic_year: string;
+  activity: string | null;
+};
+
+export async function requireUser() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw new Error("Please sign in to Sportfolio first.");
+  return data.user;
+}
+
+export async function loadTeacherWorkspace() {
+  const user = await requireUser();
+
+  const { data: classes, error: classesError } = await supabase
+    .from("sportfolio_classes")
+    .select("id,name,academic_year,activity")
+    .eq("teacher_user_id", user.id)
+    .order("name");
+
+  if (classesError) throw classesError;
+
+  const grade5 = classes?.find((item) => item.name === "Grade 5A") ?? classes?.[0];
+  let students: LiveStudent[] = [];
+
+  if (grade5) {
+    const { data: memberships, error: membershipError } = await supabase
+      .from("sportfolio_class_memberships")
+      .select("student_id,sportfolio_students(id,first_name,last_name,grade)")
+      .eq("class_id", grade5.id);
+
+    if (membershipError) throw membershipError;
+
+    students = (memberships ?? [])
+      .map((row: any) => row.sportfolio_students)
+      .filter(Boolean)
+      .sort((a: LiveStudent, b: LiveStudent) => a.last_name.localeCompare(b.last_name));
+  }
+
+  const { data: tags, error: tagsError } = await supabase
+    .from("sportfolio_tags")
+    .select("id,name,category")
+    .order("category")
+    .order("name");
+
+  if (tagsError) throw tagsError;
+
+  return { user, classes: (classes ?? []) as LiveClass[], activeClass: grade5 as LiveClass | undefined, students, tags: tags ?? [] };
+}
+
+export async function saveLiveEvidence(input: {
+  classId: string;
+  studentIds: string[];
+  tagIds: string[];
+  title?: string;
+  teacherNote?: string;
+  requestReflection?: boolean;
+}) {
+  const user = await requireUser();
+  if (!input.studentIds.length) throw new Error("Select at least one pupil.");
+
+  const { data: item, error: itemError } = await supabase
+    .from("sportfolio_items")
+    .insert({
+      class_id: input.classId,
+      author_user_id: user.id,
+      title: input.title || "Quick capture",
+      teacher_note: input.teacherNote || null,
+      visibility: "student_visible",
+      occurred_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (itemError) throw itemError;
+
+  try {
+    const { error: pupilsError } = await supabase
+      .from("sportfolio_item_students")
+      .insert(input.studentIds.map((student_id) => ({ item_id: item.id, student_id })));
+    if (pupilsError) throw pupilsError;
+
+    if (input.tagIds.length) {
+      const { error: tagError } = await supabase
+        .from("sportfolio_item_tags")
+        .insert(input.tagIds.map((tag_id) => ({ item_id: item.id, tag_id })));
+      if (tagError) throw tagError;
+    }
+
+    if (input.requestReflection) {
+      const prompt = "What went well, and what would you improve next time?";
+      const { error: reflectionError } = await supabase
+        .from("sportfolio_reflections")
+        .insert(input.studentIds.map((student_id) => ({ item_id: item.id, student_id, prompt })));
+      if (reflectionError) throw reflectionError;
+    }
+
+    await supabase.from("sportfolio_audit_log").insert({
+      actor_user_id: user.id,
+      action: "portfolio_item_created",
+      entity_type: "sportfolio_item",
+      entity_id: item.id,
+    });
+
+    return item.id as string;
+  } catch (error) {
+    await supabase.from("sportfolio_items").delete().eq("id", item.id);
+    throw error;
+  }
+}
