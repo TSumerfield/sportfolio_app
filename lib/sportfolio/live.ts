@@ -59,6 +59,17 @@ export async function loadTeacherWorkspace() {
   return { user, classes: (classes ?? []) as LiveClass[], activeClass: grade5 as LiveClass | undefined, students, tags: tags ?? [] };
 }
 
+function mediaType(file: File) {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  throw new Error("Unsupported media type.");
+}
+
+function safeFilename(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/-+/g, "-").slice(-80) || "capture";
+}
+
 export async function saveLiveEvidence(input: {
   classId: string;
   studentIds: string[];
@@ -66,6 +77,7 @@ export async function saveLiveEvidence(input: {
   title?: string;
   teacherNote?: string;
   requestReflection?: boolean;
+  file?: File | null;
 }) {
   const user = await requireUser();
   if (!input.studentIds.length) throw new Error("Select at least one pupil.");
@@ -85,6 +97,8 @@ export async function saveLiveEvidence(input: {
 
   if (itemError) throw itemError;
 
+  let uploadedPath: string | null = null;
+
   try {
     const { error: pupilsError } = await supabase
       .from("sportfolio_item_students")
@@ -96,6 +110,23 @@ export async function saveLiveEvidence(input: {
         .from("sportfolio_item_tags")
         .insert(input.tagIds.map((tag_id) => ({ item_id: item.id, tag_id })));
       if (tagError) throw tagError;
+    }
+
+    if (input.file) {
+      const type = mediaType(input.file);
+      uploadedPath = `${user.id}/${item.id}/${crypto.randomUUID()}-${safeFilename(input.file.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from("sportfolio-media")
+        .upload(uploadedPath, input.file, { contentType: input.file.type, upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { error: mediaError } = await supabase.from("sportfolio_media").insert({
+        item_id: item.id,
+        storage_path: uploadedPath,
+        media_type: type,
+        uploaded_by: user.id,
+      });
+      if (mediaError) throw mediaError;
     }
 
     if (input.requestReflection) {
@@ -115,6 +146,7 @@ export async function saveLiveEvidence(input: {
 
     return item.id as string;
   } catch (error) {
+    if (uploadedPath) await supabase.storage.from("sportfolio-media").remove([uploadedPath]);
     await supabase.from("sportfolio_items").delete().eq("id", item.id);
     throw error;
   }
