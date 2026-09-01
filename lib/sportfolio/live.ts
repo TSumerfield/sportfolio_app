@@ -76,6 +76,7 @@ export async function saveLiveEvidence(input: {
   tagIds: string[];
   title?: string;
   teacherNote?: string;
+  nextStep?: string;
   requestReflection?: boolean;
   file?: File | null;
 }) {
@@ -129,8 +130,24 @@ export async function saveLiveEvidence(input: {
       if (mediaError) throw mediaError;
     }
 
+    const nextStep = input.nextStep?.trim();
+    if (nextStep) {
+      const { error: nextStepError } = await supabase.from("sportfolio_next_steps").insert(
+        input.studentIds.map((student_id) => ({
+          student_id,
+          source_item_id: item.id,
+          final_body: nextStep,
+          status: "accepted",
+          created_by: user.id,
+        }))
+      );
+      if (nextStepError) throw nextStepError;
+    }
+
     if (input.requestReflection) {
-      const prompt = "What went well, and what would you improve next time?";
+      const prompt = nextStep
+        ? `Your next step is: ${nextStep} What will you focus on next time?`
+        : "What went well, and what would you improve next time?";
       const { error: reflectionError } = await supabase
         .from("sportfolio_reflections")
         .insert(input.studentIds.map((student_id) => ({ item_id: item.id, student_id, prompt })));
