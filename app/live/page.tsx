@@ -13,6 +13,7 @@ export default function LiveWorkspace() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const [nextStep, setNextStep] = useState("");
   const [requestReflection, setRequestReflection] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -52,10 +53,10 @@ export default function LiveWorkspace() {
     setStatus("saving");
     setMessage("");
     try {
-      const id = await saveLiveEvidence({ classId: workspace.activeClass.id, studentIds: selectedStudents, tagIds: selectedTags, title: file ? file.name.replace(/\.[^.]+$/, "") : "Quick capture", teacherNote: note, requestReflection, file });
+      const id = await saveLiveEvidence({ classId: workspace.activeClass.id, studentIds: selectedStudents, tagIds: selectedTags, title: file ? file.name.replace(/\.[^.]+$/, "") : "Quick capture", teacherNote: note, nextStep, requestReflection, file });
       setStatus("saved");
       setMessage(`Evidence saved securely · ${id.slice(0, 8)}`);
-      setSelectedStudents([]); setSelectedTags([]); setNote(""); setRequestReflection(false); clearFile();
+      setSelectedStudents([]); setSelectedTags([]); setNote(""); setNextStep(""); setRequestReflection(false); clearFile();
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Could not save evidence.");
@@ -94,7 +95,7 @@ export default function LiveWorkspace() {
           <section className="live-panel">
             <div className="panel-block"><div className="panel-title"><h2>Who?</h2><span>{selectedStudents.length} selected</span></div><div className="student-picker">{workspace.students.map((student) => { const selected = selectedStudents.includes(student.id); const initials = `${student.first_name[0]}${student.last_name[0]}`; return <button key={student.id} className={selected ? "student-choice selected" : "student-choice"} onClick={() => toggleStudent(student.id)}><span>{initials}</span><strong>{student.first_name}</strong>{selected && <b>✓</b>}</button>; })}</div></div>
             <div className="panel-block"><div className="panel-title"><h2>What does it show?</h2><span>{selectedTags.length} tags</span></div><div className="live-tags">{workspace.tags.map((tag) => <button key={tag.id} className={selectedTags.includes(tag.id) ? "active" : ""} onClick={() => toggleTag(tag.id)}>{tag.name}</button>)}</div></div>
-            <div className="panel-block"><label className="note-label">Quick note<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional teacher feedback…" /></label><label className="reflection-toggle"><input type="checkbox" checked={requestReflection} onChange={(event) => setRequestReflection(event.target.checked)} /><span><strong>Request pupil reflection</strong><small>Creates a reflection task for every selected pupil.</small></span></label></div>
+            <div className="panel-block"><label className="note-label">Quick note<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional teacher observation…" /></label><label className="note-label">Next learning step<textarea value={nextStep} onChange={(event) => setNextStep(event.target.value)} placeholder="What should these pupils focus on next?" /></label><label className="reflection-toggle"><input type="checkbox" checked={requestReflection} onChange={(event) => setRequestReflection(event.target.checked)} /><span><strong>Request pupil reflection</strong><small>{nextStep.trim() ? "Reflection will ask the pupil how they will act on this next step." : "Creates a reflection task for every selected pupil."}</small></span></label></div>
             <div className="save-zone"><div className="selected-strip">{selectedNames.length ? selectedNames.map((student) => <span key={student.id}>{student.first_name}</span>) : <em>Select pupils to continue</em>}</div><button className="save-live" disabled={!selectedStudents.length || status === "saving"} onClick={save}>{status === "saving" ? (file ? "Uploading + saving…" : "Saving securely…") : "Save evidence"}</button>{message && <div className={`live-message ${status}`}>{message}</div>}</div>
           </section>
         </div>
