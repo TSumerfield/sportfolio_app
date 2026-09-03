@@ -1,12 +1,31 @@
 import { supabase } from "../supabase/client";
 
-export type LiveStudent = { id: string; first_name: string; last_name: string; grade: string | null; };
-export type LiveClass = { id: string; name: string; academic_year: string; activity: string | null; };
+export type LiveStudent = { id: string; first_name: string; last_name: string | null; grade: string | null; };
+export type LiveClass = { id: string; name: string; academic_year: string; activity: string | null; pupil_count?: number; };
 export type PupilLearningContext = {
   evidenceCount: number;
   recentEvidence: { id: string; title: string | null; teacher_note: string | null; occurred_at: string; tags: string[] }[];
   nextSteps: { id: string; final_body: string; status: string; created_at: string }[];
   activeGoals: { id: string; body: string; status: string; target_date: string | null }[];
+};
+export type PupilPortfolioItem = {
+  id: string;
+  title: string | null;
+  teacher_note: string | null;
+  student_feedback: string | null;
+  occurred_at: string;
+  class_name: string | null;
+  tags: string[];
+  media: { id: string; media_type: "image" | "video" | "audio"; signed_url: string | null }[];
+  reflection: { id: string; prompt: string | null; text_response: string | null; submitted_at: string | null; reviewed_at: string | null } | null;
+  next_step: string | null;
+};
+export type PupilPortfolio = {
+  student: LiveStudent;
+  evidenceCount: number;
+  items: PupilPortfolioItem[];
+  currentNextStep: string | null;
+  currentGoal: string | null;
 };
 
 export async function requireUser() {
@@ -19,16 +38,29 @@ export async function loadTeacherWorkspace() {
   const user = await requireUser();
   const { data: classes, error: classesError } = await supabase.from("sportfolio_classes").select("id,name,academic_year,activity").eq("teacher_user_id", user.id).order("name");
   if (classesError) throw classesError;
-  const grade5 = classes?.find((item) => item.name === "Grade 5A") ?? classes?.[0];
-  let students: LiveStudent[] = [];
-  if (grade5) {
-    const { data: memberships, error: membershipError } = await supabase.from("sportfolio_class_memberships").select("student_id,sportfolio_students(id,first_name,last_name,grade)").eq("class_id", grade5.id);
-    if (membershipError) throw membershipError;
-    students = (memberships ?? []).map((row: any) => row.sportfolio_students).filter(Boolean).sort((a: LiveStudent, b: LiveStudent) => a.last_name.localeCompare(b.last_name));
-  }
+
+  const classRows = (classes ?? []) as LiveClass[];
+  if (!classRows.length) return { user, classes: [] as LiveClass[], activeClass: undefined, students: [] as LiveStudent[], tags: [] };
+
+  const classIds = classRows.map((item) => item.id);
+  const { data: memberships, error: membershipError } = await supabase.from("sportfolio_class_memberships").select("class_id,student_id").in("class_id", classIds);
+  if (membershipError) throw membershipError;
+  const counts = new Map<string, number>();
+  for (const row of memberships ?? []) counts.set(row.class_id, (counts.get(row.class_id) ?? 0) + 1);
+  const classesWithCounts = classRows.map((item) => ({ ...item, pupil_count: counts.get(item.id) ?? 0 }));
+
+  const activeClass = classesWithCounts[0];
+  const students = await loadClassStudents(activeClass.id);
   const { data: tags, error: tagsError } = await supabase.from("sportfolio_tags").select("id,name,category").order("category").order("name");
   if (tagsError) throw tagsError;
-  return { user, classes: (classes ?? []) as LiveClass[], activeClass: grade5 as LiveClass | undefined, students, tags: tags ?? [] };
+  return { user, classes: classesWithCounts, activeClass, students, tags: tags ?? [] };
+}
+
+export async function loadClassStudents(classId: string): Promise<LiveStudent[]> {
+  await requireUser();
+  const { data: memberships, error } = await supabase.from("sportfolio_class_memberships").select("student_id,sportfolio_students(id,first_name,last_name,grade)").eq("class_id", classId);
+  if (error) throw error;
+  return (memberships ?? []).map((row: any) => row.sportfolio_students).filter(Boolean).sort((a: LiveStudent, b: LiveStudent) => `${a.last_name ?? ""}${a.first_name}`.localeCompare(`${b.last_name ?? ""}${b.first_name}`));
 }
 
 export async function loadPupilLearningContext(studentId: string): Promise<PupilLearningContext> {
@@ -41,7 +73,7 @@ export async function loadPupilLearningContext(studentId: string): Promise<Pupil
     const { data: items, error: itemsError } = await supabase.from("sportfolio_items").select("id,title,teacher_note,occurred_at").in("id", itemIds).order("occurred_at", { ascending: false }).limit(5);
     if (itemsError) throw itemsError;
     const recentIds = (items ?? []).map((item) => item.id);
-    let tagMap = new Map<string, string[]>();
+    const tagMap = new Map<string, string[]>();
     if (recentIds.length) {
       const { data: tagLinks, error: tagLinksError } = await supabase.from("sportfolio_item_tags").select("item_id,sportfolio_tags(name)").in("item_id", recentIds);
       if (tagLinksError) throw tagLinksError;
@@ -58,6 +90,76 @@ export async function loadPupilLearningContext(studentId: string): Promise<Pupil
   const { data: goals, error: goalsError } = await supabase.from("sportfolio_goals").select("id,body,status,target_date").eq("student_id", studentId).neq("status", "achieved").order("created_at", { ascending: false }).limit(3);
   if (goalsError) throw goalsError;
   return { evidenceCount: itemIds.length, recentEvidence, nextSteps: nextSteps ?? [], activeGoals: goals ?? [] };
+}
+
+export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfolio> {
+  await requireUser();
+  const { data: student, error: studentError } = await supabase.from("sportfolio_students").select("id,first_name,last_name,grade").eq("id", studentId).single();
+  if (studentError) throw studentError;
+
+  const { data: links, error: linksError } = await supabase.from("sportfolio_item_students").select("item_id").eq("student_id", studentId);
+  if (linksError) throw linksError;
+  const itemIds = (links ?? []).map((row) => row.item_id);
+  const context = await loadPupilLearningContext(studentId);
+  if (!itemIds.length) return { student: student as LiveStudent, evidenceCount: 0, items: [], currentNextStep: context.nextSteps[0]?.final_body ?? null, currentGoal: context.activeGoals[0]?.body ?? null };
+
+  const { data: items, error: itemsError } = await supabase.from("sportfolio_items").select("id,title,teacher_note,student_feedback,occurred_at,class_id,sportfolio_classes(name)").in("id", itemIds).order("occurred_at", { ascending: false });
+  if (itemsError) throw itemsError;
+
+  const ids = (items ?? []).map((item) => item.id);
+  const [tagResult, mediaResult, reflectionResult, nextStepResult] = await Promise.all([
+    supabase.from("sportfolio_item_tags").select("item_id,sportfolio_tags(name)").in("item_id", ids),
+    supabase.from("sportfolio_media").select("id,item_id,storage_path,media_type").in("item_id", ids),
+    supabase.from("sportfolio_reflections").select("id,item_id,prompt,text_response,submitted_at,reviewed_at").eq("student_id", studentId).in("item_id", ids),
+    supabase.from("sportfolio_next_steps").select("source_item_id,final_body,status,created_at").eq("student_id", studentId).in("source_item_id", ids).neq("status", "ignored").order("created_at", { ascending: false })
+  ]);
+  if (tagResult.error) throw tagResult.error;
+  if (mediaResult.error) throw mediaResult.error;
+  if (reflectionResult.error) throw reflectionResult.error;
+  if (nextStepResult.error) throw nextStepResult.error;
+
+  const tagMap = new Map<string, string[]>();
+  for (const row of tagResult.data ?? []) {
+    const tag = (row as any).sportfolio_tags?.name;
+    if (tag) tagMap.set(row.item_id, [...(tagMap.get(row.item_id) ?? []), tag]);
+  }
+
+  const signedMap = new Map<string, string | null>();
+  const mediaRows = mediaResult.data ?? [];
+  if (mediaRows.length) {
+    const paths = mediaRows.map((row) => row.storage_path);
+    const { data: signed, error: signedError } = await supabase.storage.from("sportfolio-media").createSignedUrls(paths, 60 * 30);
+    if (signedError) throw signedError;
+    signed?.forEach((entry, index) => signedMap.set(paths[index], entry.signedUrl ?? null));
+  }
+
+  const mediaMap = new Map<string, PupilPortfolioItem["media"]>();
+  for (const row of mediaRows) {
+    mediaMap.set(row.item_id, [...(mediaMap.get(row.item_id) ?? []), { id: row.id, media_type: row.media_type as "image" | "video" | "audio", signed_url: signedMap.get(row.storage_path) ?? null }]);
+  }
+  const reflectionMap = new Map<string, PupilPortfolioItem["reflection"]>();
+  for (const row of reflectionResult.data ?? []) reflectionMap.set(row.item_id, row as PupilPortfolioItem["reflection"]);
+  const nextStepMap = new Map<string, string>();
+  for (const row of nextStepResult.data ?? []) if (!nextStepMap.has(row.source_item_id)) nextStepMap.set(row.source_item_id, row.final_body);
+
+  return {
+    student: student as LiveStudent,
+    evidenceCount: itemIds.length,
+    currentNextStep: context.nextSteps[0]?.final_body ?? null,
+    currentGoal: context.activeGoals[0]?.body ?? null,
+    items: (items ?? []).map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      teacher_note: item.teacher_note,
+      student_feedback: item.student_feedback,
+      occurred_at: item.occurred_at,
+      class_name: item.sportfolio_classes?.name ?? null,
+      tags: tagMap.get(item.id) ?? [],
+      media: mediaMap.get(item.id) ?? [],
+      reflection: reflectionMap.get(item.id) ?? null,
+      next_step: nextStepMap.get(item.id) ?? null
+    }))
+  };
 }
 
 function mediaType(file: File) { if (file.type.startsWith("image/")) return "image"; if (file.type.startsWith("video/")) return "video"; if (file.type.startsWith("audio/")) return "audio"; throw new Error("Unsupported media type."); }
