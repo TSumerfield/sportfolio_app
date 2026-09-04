@@ -17,7 +17,15 @@ export type PupilPortfolioItem = {
   class_name: string | null;
   tags: string[];
   media: { id: string; media_type: "image" | "video" | "audio"; signed_url: string | null }[];
-  reflection: { id: string; prompt: string | null; text_response: string | null; submitted_at: string | null; reviewed_at: string | null } | null;
+  reflection: {
+    id: string;
+    prompt: string | null;
+    text_response: string | null;
+    voice_storage_path: string | null;
+    voice_signed_url: string | null;
+    submitted_at: string | null;
+    reviewed_at: string | null;
+  } | null;
   next_step: string | null;
 };
 export type PupilPortfolio = {
@@ -110,7 +118,7 @@ export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfo
   const [tagResult, mediaResult, reflectionResult, nextStepResult] = await Promise.all([
     supabase.from("sportfolio_item_tags").select("item_id,sportfolio_tags(name)").in("item_id", ids),
     supabase.from("sportfolio_media").select("id,item_id,storage_path,media_type").in("item_id", ids),
-    supabase.from("sportfolio_reflections").select("id,item_id,prompt,text_response,submitted_at,reviewed_at").eq("student_id", studentId).in("item_id", ids),
+    supabase.from("sportfolio_reflections").select("id,item_id,prompt,text_response,voice_storage_path,submitted_at,reviewed_at").eq("student_id", studentId).in("item_id", ids),
     supabase.from("sportfolio_next_steps").select("source_item_id,final_body,status,created_at").eq("student_id", studentId).in("source_item_id", ids).neq("status", "ignored").order("created_at", { ascending: false })
   ]);
   if (tagResult.error) throw tagResult.error;
@@ -133,12 +141,32 @@ export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfo
     signed?.forEach((entry, index) => signedMap.set(paths[index], entry.signedUrl ?? null));
   }
 
+  const voiceSignedMap = new Map<string, string | null>();
+  const voicePaths = (reflectionResult.data ?? []).map((row) => row.voice_storage_path).filter((path): path is string => !!path);
+  if (voicePaths.length) {
+    const { data: signedVoices, error: voiceError } = await supabase.storage.from("sportfolio-media").createSignedUrls(voicePaths, 60 * 30);
+    if (voiceError) throw voiceError;
+    signedVoices?.forEach((entry, index) => voiceSignedMap.set(voicePaths[index], entry.signedUrl ?? null));
+  }
+
   const mediaMap = new Map<string, PupilPortfolioItem["media"]>();
   for (const row of mediaRows) {
     mediaMap.set(row.item_id, [...(mediaMap.get(row.item_id) ?? []), { id: row.id, media_type: row.media_type as "image" | "video" | "audio", signed_url: signedMap.get(row.storage_path) ?? null }]);
   }
+
   const reflectionMap = new Map<string, PupilPortfolioItem["reflection"]>();
-  for (const row of reflectionResult.data ?? []) reflectionMap.set(row.item_id, row as PupilPortfolioItem["reflection"]);
+  for (const row of reflectionResult.data ?? []) {
+    reflectionMap.set(row.item_id, {
+      id: row.id,
+      prompt: row.prompt,
+      text_response: row.text_response,
+      voice_storage_path: row.voice_storage_path,
+      voice_signed_url: row.voice_storage_path ? voiceSignedMap.get(row.voice_storage_path) ?? null : null,
+      submitted_at: row.submitted_at,
+      reviewed_at: row.reviewed_at,
+    });
+  }
+
   const nextStepMap = new Map<string, string>();
   for (const row of nextStepResult.data ?? []) if (!nextStepMap.has(row.source_item_id)) nextStepMap.set(row.source_item_id, row.final_body);
 
@@ -160,6 +188,21 @@ export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfo
       next_step: nextStepMap.get(item.id) ?? null
     }))
   };
+}
+
+export async function markReflectionReviewed(reflectionId: string) {
+  const user = await requireUser();
+  const { error } = await supabase.from("sportfolio_reflections").update({ reviewed_at: new Date().toISOString(), reviewed_by: user.id }).eq("id", reflectionId);
+  if (error) throw error;
+  await supabase.from("sportfolio_audit_log").insert({ actor_user_id: user.id, action: "reflection_reviewed", entity_type: "sportfolio_reflection", entity_id: reflectionId });
+}
+
+export async function saveTeacherFeedback(itemId: string, feedback: string) {
+  const user = await requireUser();
+  const body = feedback.trim();
+  const { error } = await supabase.from("sportfolio_items").update({ student_feedback: body || null }).eq("id", itemId).eq("author_user_id", user.id);
+  if (error) throw error;
+  await supabase.from("sportfolio_audit_log").insert({ actor_user_id: user.id, action: "teacher_feedback_updated", entity_type: "sportfolio_item", entity_id: itemId });
 }
 
 function mediaType(file: File) { if (file.type.startsWith("image/")) return "image"; if (file.type.startsWith("video/")) return "video"; if (file.type.startsWith("audio/")) return "audio"; throw new Error("Unsupported media type."); }
