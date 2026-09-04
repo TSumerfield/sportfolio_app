@@ -7,27 +7,42 @@ export default function AuthCallbackPage() {
   const [message, setMessage] = useState("Securing your Sportfolio session…");
 
   useEffect(() => {
-    async function finish() {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get("code");
-      if (!code) {
+    let cancelled = false;
+
+    async function waitForSession() {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
         const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          window.location.replace("/live");
+        if (data.session) return true;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      return false;
+    }
+
+    async function finish() {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          if (!cancelled) setMessage("We could not complete sign-in. Request a new link.");
           return;
         }
-        setMessage("This sign-in link is invalid or has expired.");
+        window.history.replaceState({}, document.title, "/auth/callback");
+      }
+
+      const ready = await waitForSession();
+      if (cancelled) return;
+      if (!ready) {
+        setMessage("Your sign-in completed, but the session did not load. Please try the link again.");
         return;
       }
 
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) {
-        setMessage("We could not complete sign-in. Request a new link.");
-        return;
-      }
       window.location.replace("/live");
     }
+
     finish();
+    return () => { cancelled = true; };
   }, []);
 
   return <main style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#050505",color:"white",fontFamily:"Manrope,Arial"}}>
