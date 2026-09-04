@@ -6,7 +6,9 @@ import {
   loadPupilLearningContext,
   loadPupilPortfolio,
   loadTeacherWorkspace,
+  markReflectionReviewed,
   saveLiveEvidence,
+  saveTeacherFeedback,
   type LiveClass,
   type LiveStudent,
   type PupilLearningContext,
@@ -128,6 +130,30 @@ export default function LiveWorkspace() {
     finally { setPortfolioLoading(false); }
   }
 
+  async function reviewReflection(reflectionId: string) {
+    if (!portfolio) return;
+    setMessage("");
+    try {
+      await markReflectionReviewed(reflectionId);
+      setPortfolio(await loadPupilPortfolio(portfolio.student.id));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to mark reflection reviewed.");
+      throw error;
+    }
+  }
+
+  async function updateFeedback(itemId: string, feedback: string) {
+    if (!portfolio) return;
+    setMessage("");
+    try {
+      await saveTeacherFeedback(itemId, feedback);
+      setPortfolio(await loadPupilPortfolio(portfolio.student.id));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to save feedback.");
+      throw error;
+    }
+  }
+
   function toggleStudent(id: string) { setSelectedStudents((c) => c.includes(id) ? c.filter((v) => v !== id) : [...c, id]); }
   function toggleTag(id: string) { setSelectedTags((c) => c.includes(id) ? c.filter((v) => v !== id) : [...c, id]); }
 
@@ -202,31 +228,12 @@ export default function LiveWorkspace() {
 
       {view === "classes" && <ClassesView classes={workspace.classes} onCapture={openCaptureForClass} onPortfolio={openClassPortfolio} />}
 
-      {view === "classPortfolio" && activeClass && <ClassPortfolioView
-        activeClass={activeClass}
-        students={students}
-        items={classEvidence}
-        loading={classPortfolioLoading}
-        error={message}
-        onBack={() => setView("classes")}
-        onCapture={() => openCaptureForClass(activeClass)}
-        onPupil={openPupilPortfolio}
-      />}
+      {view === "classPortfolio" && activeClass && <ClassPortfolioView activeClass={activeClass} students={students} items={classEvidence} loading={classPortfolioLoading} error={message} onBack={() => setView("classes")} onCapture={() => openCaptureForClass(activeClass)} onPupil={openPupilPortfolio} />}
 
-      {view === "pupilPortfolio" && <PupilPortfolioView
-        portfolio={portfolio}
-        loading={portfolioLoading}
-        error={message}
-        activeClass={activeClass}
-        onBack={() => activeClass && openClassPortfolio(activeClass)}
-        onCapture={() => activeClass && openCaptureForClass(activeClass)}
-      />}
+      {view === "pupilPortfolio" && <PupilPortfolioView portfolio={portfolio} loading={portfolioLoading} error={message} activeClass={activeClass} onBack={() => activeClass && openClassPortfolio(activeClass)} onCapture={() => activeClass && openCaptureForClass(activeClass)} onReview={reviewReflection} onFeedback={updateFeedback} />}
 
       {view === "capture" && activeClass && <div className="live-page">
-        <div className="live-heading">
-          <div><button className="back-link" onClick={() => openClassPortfolio(activeClass)}>← {activeClass.name} Sportfolio</button><span className="eyebrow-orange">QUICK CAPTURE</span><h1>Capture the moment.</h1><p>Select pupils, tag the learning and save.</p></div>
-          <div className="class-chip">{activeClass.activity ?? "PE"}<b>{activeClass.academic_year}</b></div>
-        </div>
+        <div className="live-heading"><div><button className="back-link" onClick={() => openClassPortfolio(activeClass)}>← {activeClass.name} Sportfolio</button><span className="eyebrow-orange">QUICK CAPTURE</span><h1>Capture the moment.</h1><p>Select pupils, tag the learning and save.</p></div><div className="class-chip">{activeClass.activity ?? "PE"}<b>{activeClass.academic_year}</b></div></div>
         <div className="live-grid">
           <section className="camera-card">
             <div className={`camera-view ${previewUrl ? "has-preview" : ""}`}>
@@ -236,25 +243,13 @@ export default function LiveWorkspace() {
               {!previewUrl && <><span className="camera-label">READY TO CAPTURE</span><div className="camera-focus">+</div><div className="camera-prompt">Add photo, video or audio</div></>}
               {file && <div className="file-pill"><span>{fileKind}</span>{file.name}<button onClick={clearFile} aria-label="Remove media">×</button></div>}
             </div>
-            <div className="camera-controls capture-modes">
-              <label className="capture-source">▧ Photo<input type="file" accept="image/*" capture="environment" onChange={chooseFile} /></label>
-              <label className="capture-source">▣ Video<input type="file" accept="video/*" capture="environment" onChange={chooseFile} /></label>
-              <label className="capture-source">◉ Audio<input type="file" accept="audio/*" capture onChange={chooseFile} /></label>
-            </div>
+            <div className="camera-controls capture-modes"><label className="capture-source">▧ Photo<input type="file" accept="image/*" capture="environment" onChange={chooseFile} /></label><label className="capture-source">▣ Video<input type="file" accept="video/*" capture="environment" onChange={chooseFile} /></label><label className="capture-source">◉ Audio<input type="file" accept="audio/*" capture onChange={chooseFile} /></label></div>
             <p>{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB · stored privately in Sportfolio` : "Choose the exact capture type. Media stays selected if saving fails so you can retry."}</p>
           </section>
 
           <section className="live-panel">
-            <div className="panel-block"><div className="panel-title"><h2>Who?</h2><span>{selectedStudents.length} selected</span></div>
-              {students.length ? <div className="student-picker">{students.map((student) => {
-                const selected = selectedStudents.includes(student.id);
-                const initials = `${student.first_name[0] ?? ""}${student.last_name?.[0] ?? ""}`;
-                return <button key={student.id} className={selected ? "student-choice selected" : "student-choice"} onClick={() => toggleStudent(student.id)}><span>{initials}</span><strong>{student.first_name}</strong>{selected && <b>✓</b>}</button>;
-              })}</div> : <p className="empty-copy">No pupils are in this class yet.</p>}
-            </div>
-
+            <div className="panel-block"><div className="panel-title"><h2>Who?</h2><span>{selectedStudents.length} selected</span></div>{students.length ? <div className="student-picker">{students.map((student) => { const selected = selectedStudents.includes(student.id); const initials = `${student.first_name[0] ?? ""}${student.last_name?.[0] ?? ""}`; return <button key={student.id} className={selected ? "student-choice selected" : "student-choice"} onClick={() => toggleStudent(student.id)}><span>{initials}</span><strong>{student.first_name}</strong>{selected && <b>✓</b>}</button>; })}</div> : <p className="empty-copy">No pupils are in this class yet.</p>}</div>
             {selectedStudents.length === 1 && <div className="learning-context"><div className="context-head"><div><small>LEARNING HISTORY</small><strong>{selectedNames[0]?.first_name}</strong></div>{context && <span>{context.evidenceCount} evidence</span>}</div>{contextLoading ? <p>Loading previous learning…</p> : context ? <><div className="context-next"><small>CURRENT NEXT STEP</small><strong>{context.nextSteps[0]?.final_body ?? context.activeGoals[0]?.body ?? "No next step recorded yet."}</strong></div>{context.recentEvidence[0] && <div className="context-last"><small>LAST OBSERVATION</small><span>{context.recentEvidence[0].teacher_note || context.recentEvidence[0].title || "Evidence captured"}</span></div>}</> : <p>No previous learning context yet.</p>}</div>}
-
             <div className="panel-block"><div className="panel-title"><h2>What does it show?</h2><span>{selectedTags.length} tags</span></div><div className="live-tags">{workspace.tags.map((tag) => <button key={tag.id} className={selectedTags.includes(tag.id) ? "active" : ""} onClick={() => toggleTag(tag.id)}>{tag.name}</button>)}</div></div>
             <div className="panel-block"><label className="note-label">Quick note<textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional teacher observation…" /></label><label className="note-label">Next learning step<textarea value={nextStep} onChange={(e) => setNextStep(e.target.value)} placeholder="What should these pupils focus on next?" /></label><label className="reflection-toggle"><input type="checkbox" checked={requestReflection} onChange={(e) => setRequestReflection(e.target.checked)} /><span><strong>Request pupil reflection</strong><small>Creates a reflection task for each selected pupil.</small></span></label></div>
             <div className="save-zone"><div className="selected-strip">{selectedNames.length ? selectedNames.map((s) => <span key={s.id}>{s.first_name}</span>) : <em>Select pupils to continue</em>}</div><button className="save-live" disabled={!selectedStudents.length || status === "saving"} onClick={save}>{status === "saving" ? (file ? "Uploading + saving…" : "Saving securely…") : "Save evidence"}</button>{message && <div className={`live-message ${status}`}>{message}</div>}{status === "saved" && <button className="review-after-save" onClick={() => openClassPortfolio(activeClass)}>View class Sportfolio</button>}</div>
@@ -270,20 +265,51 @@ function ClassesView({ classes, onCapture, onPortfolio }: { classes: LiveClass[]
 }
 
 function ClassPortfolioView({ activeClass, students, items, loading, error, onBack, onCapture, onPupil }: { activeClass: LiveClass; students: LiveStudent[]; items: ClassEvidence[]; loading: boolean; error: string; onBack: () => void; onCapture: () => void; onPupil: (student: LiveStudent) => void }) {
-  return <div className="live-page class-workspace"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← Your classes</button><span className="eyebrow-orange">CLASS SPORTFOLIO</span><h1>{activeClass.name}</h1><p>{activeClass.activity ?? "PE"} · {students.length} pupil{students.length === 1 ? "" : "s"} · {items.length} evidence item{items.length === 1 ? "" : "s"}</p></div><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div>
-    <div className="workspace-section"><div className="section-head"><div><h2>Pupil Sportfolios</h2><p>Tap any pupil to see only their evidence.</p></div></div>{students.length ? <div className="pupil-review-grid">{students.map((student) => <button className="pupil-review-card" key={student.id} onClick={() => onPupil(student)}><span className="pupil-avatar">{student.first_name[0]}{student.last_name?.[0] ?? ""}</span><div><strong>{student.first_name} {student.last_name ?? ""}</strong><small>{student.grade ?? activeClass.name}</small></div><b>View Sportfolio →</b></button>)}</div> : <div className="empty-state"><h3>No pupils yet</h3></div>}</div>
-    <div className="workspace-section"><div className="section-head"><div><h2>All class evidence</h2><p>Every saved photo, video, audio clip and observation in this class.</p></div></div>{loading ? <div className="empty-state"><p>Loading class Sportfolio…</p></div> : error && !items.length ? <div className="empty-state"><h3>Could not load evidence</h3><p>{error}</p><button className="primary-capture" onClick={onCapture}>Capture new evidence</button></div> : items.length ? <EvidenceList items={items} fallbackClass={activeClass.name} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Capture the first piece of evidence for this class.</p><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div>}</div>
-  </div>;
+  return <div className="live-page class-workspace"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← Your classes</button><span className="eyebrow-orange">CLASS SPORTFOLIO</span><h1>{activeClass.name}</h1><p>{activeClass.activity ?? "PE"} · {students.length} pupil{students.length === 1 ? "" : "s"} · {items.length} evidence item{items.length === 1 ? "" : "s"}</p></div><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div><div className="workspace-section"><div className="section-head"><div><h2>Pupil Sportfolios</h2><p>Tap any pupil to see only their evidence.</p></div></div>{students.length ? <div className="pupil-review-grid">{students.map((student) => <button className="pupil-review-card" key={student.id} onClick={() => onPupil(student)}><span className="pupil-avatar">{student.first_name[0]}{student.last_name?.[0] ?? ""}</span><div><strong>{student.first_name} {student.last_name ?? ""}</strong><small>{student.grade ?? activeClass.name}</small></div><b>View Sportfolio →</b></button>)}</div> : <div className="empty-state"><h3>No pupils yet</h3></div>}</div><div className="workspace-section"><div className="section-head"><div><h2>All class evidence</h2><p>Every saved photo, video, audio clip and observation in this class.</p></div></div>{loading ? <div className="empty-state"><p>Loading class Sportfolio…</p></div> : error && !items.length ? <div className="empty-state"><h3>Could not load evidence</h3><p>{error}</p><button className="primary-capture" onClick={onCapture}>Capture new evidence</button></div> : items.length ? <EvidenceList items={items} fallbackClass={activeClass.name} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Capture the first piece of evidence for this class.</p><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div>}</div></div>;
 }
 
-function PupilPortfolioView({ portfolio, loading, error, activeClass, onBack, onCapture }: { portfolio: PupilPortfolio | null; loading: boolean; error: string; activeClass: LiveClass | null; onBack: () => void; onCapture: () => void }) {
+function PupilPortfolioView({ portfolio, loading, error, activeClass, onBack, onCapture, onReview, onFeedback }: { portfolio: PupilPortfolio | null; loading: boolean; error: string; activeClass: LiveClass | null; onBack: () => void; onCapture: () => void; onReview: (reflectionId: string) => Promise<void>; onFeedback: (itemId: string, feedback: string) => Promise<void> }) {
   if (loading) return <div className="live-page portfolio-page"><button className="back-link" onClick={onBack}>← Class Sportfolio</button><div className="empty-state"><p>Loading pupil Sportfolio…</p></div></div>;
   if (!portfolio) return <div className="live-page portfolio-page"><button className="back-link" onClick={onBack}>← Class Sportfolio</button><div className="empty-state"><h3>Could not load this Sportfolio</h3><p>{error}</p></div></div>;
   const s = portfolio.student;
   const pupilItems: ClassEvidence[] = portfolio.items.map((item) => ({ ...item, pupilNames: [`${s.first_name} ${s.last_name ?? ""}`.trim()] }));
-  return <div className="live-page portfolio-page"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← {activeClass?.name ?? "Class"} Sportfolio</button><span className="eyebrow-orange">PUPIL SPORTFOLIO</span><div className="portfolio-title"><span className="pupil-avatar large">{s.first_name[0]}{s.last_name?.[0] ?? ""}</span><div><h1>{s.first_name} {s.last_name ?? ""}</h1><p>{s.grade ?? activeClass?.name} · {portfolio.evidenceCount} evidence item{portfolio.evidenceCount === 1 ? "" : "s"}</p></div></div></div><button className="primary-capture" onClick={onCapture}>● Capture for class</button></div>{(portfolio.currentNextStep || portfolio.currentGoal) && <div className="next-step-banner"><small>CURRENT LEARNING PRIORITY</small><strong>{portfolio.currentNextStep ?? portfolio.currentGoal}</strong></div>}{pupilItems.length ? <EvidenceList items={pupilItems} fallbackClass={activeClass?.name ?? "Class"} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Nothing has been saved to this pupil's Sportfolio yet.</p></div>}</div>;
+  return <div className="live-page portfolio-page"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← {activeClass?.name ?? "Class"} Sportfolio</button><span className="eyebrow-orange">PUPIL SPORTFOLIO</span><div className="portfolio-title"><span className="pupil-avatar large">{s.first_name[0]}{s.last_name?.[0] ?? ""}</span><div><h1>{s.first_name} {s.last_name ?? ""}</h1><p>{s.grade ?? activeClass?.name} · {portfolio.evidenceCount} evidence item{portfolio.evidenceCount === 1 ? "" : "s"}</p></div></div></div><button className="primary-capture" onClick={onCapture}>● Capture for class</button></div>{(portfolio.currentNextStep || portfolio.currentGoal) && <div className="next-step-banner"><small>CURRENT LEARNING PRIORITY</small><strong>{portfolio.currentNextStep ?? portfolio.currentGoal}</strong></div>}{pupilItems.length ? <EvidenceList items={pupilItems} fallbackClass={activeClass?.name ?? "Class"} interactive onReview={onReview} onFeedback={onFeedback} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Nothing has been saved to this pupil's Sportfolio yet.</p></div>}</div>;
 }
 
-function EvidenceList({ items, fallbackClass }: { items: ClassEvidence[]; fallbackClass: string }) {
-  return <div className="timeline-list">{items.map((item) => <article className="portfolio-item" key={item.id}>{item.media.length ? item.media.map((media) => media.signed_url && (media.media_type === "image" ? <img className="portfolio-media" src={media.signed_url} alt="Private Sportfolio evidence" key={media.id} /> : media.media_type === "video" ? <video className="portfolio-media" src={media.signed_url} controls playsInline preload="metadata" key={media.id} /> : <audio src={media.signed_url} controls key={media.id} />)) : <div className="empty-copy" style={{padding:16}}>Observation only</div>}<div className="portfolio-copy"><div className="portfolio-meta">{new Date(item.occurred_at).toLocaleDateString()} · {item.class_name ?? fallbackClass}</div><h2>{item.title || "Evidence"}</h2><p style={{fontWeight:700}}>{item.pupilNames.join(", ")}</p>{item.tags.length > 0 && <div className="portfolio-tags">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}{item.teacher_note && <p>{item.teacher_note}</p>}{item.next_step && <div className="item-next"><small>NEXT STEP</small><strong>{item.next_step}</strong></div>}{item.reflection && <div className="reflection-card"><small>PUPIL REFLECTION</small><p>{item.reflection.text_response ?? item.reflection.prompt ?? "Reflection requested"}</p></div>}{item.student_feedback && <div className="reflection-card"><small>FEEDBACK</small><p>{item.student_feedback}</p></div>}</div></article>)}</div>;
+function EvidenceList({ items, fallbackClass, interactive = false, onReview, onFeedback }: { items: ClassEvidence[]; fallbackClass: string; interactive?: boolean; onReview?: (reflectionId: string) => Promise<void>; onFeedback?: (itemId: string, feedback: string) => Promise<void> }) {
+  const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [localMessage, setLocalMessage] = useState<Record<string, string>>({});
+
+  async function review(item: ClassEvidence) {
+    if (!item.reflection || !onReview) return;
+    setBusyId(item.id);
+    try { await onReview(item.reflection.id); }
+    finally { setBusyId(null); }
+  }
+
+  async function saveFeedback(item: ClassEvidence) {
+    if (!onFeedback) return;
+    const body = feedbackDrafts[item.id] ?? item.student_feedback ?? "";
+    setBusyId(item.id);
+    setLocalMessage((current) => ({ ...current, [item.id]: "" }));
+    try {
+      await onFeedback(item.id, body);
+      setLocalMessage((current) => ({ ...current, [item.id]: "Feedback saved." }));
+    } catch {
+      setLocalMessage((current) => ({ ...current, [item.id]: "Feedback could not be saved." }));
+    } finally { setBusyId(null); }
+  }
+
+  return <div className="timeline-list">{items.map((item) => <article className="portfolio-item" key={item.id}>
+    {item.media.length ? item.media.map((media) => media.signed_url && (media.media_type === "image" ? <img className="portfolio-media" src={media.signed_url} alt="Private Sportfolio evidence" key={media.id} /> : media.media_type === "video" ? <video className="portfolio-media" src={media.signed_url} controls playsInline preload="metadata" key={media.id} /> : <audio src={media.signed_url} controls key={media.id} />)) : <div className="empty-copy" style={{padding:16}}>Observation only</div>}
+    <div className="portfolio-copy">
+      <div className="portfolio-meta">{new Date(item.occurred_at).toLocaleDateString()} · {item.class_name ?? fallbackClass}</div><h2>{item.title || "Evidence"}</h2><p style={{fontWeight:700}}>{item.pupilNames.join(", ")}</p>
+      {item.tags.length > 0 && <div className="portfolio-tags">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
+      {item.teacher_note && <p>{item.teacher_note}</p>}
+      {item.next_step && <div className="item-next"><small>NEXT STEP</small><strong>{item.next_step}</strong></div>}
+      {item.reflection && <div className="reflection-card"><small>PUPIL REFLECTION</small>{item.reflection.submitted_at ? <>{item.reflection.text_response && <p>{item.reflection.text_response}</p>}{item.reflection.voice_signed_url && <audio src={item.reflection.voice_signed_url} controls style={{width:"100%",marginTop:8}} />}{!item.reflection.text_response && !item.reflection.voice_signed_url && <p>Response submitted.</p>}{interactive && <button className="review-after-save" disabled={!!item.reflection.reviewed_at || busyId === item.id} onClick={() => review(item)}>{item.reflection.reviewed_at ? "✓ Reviewed" : busyId === item.id ? "Updating…" : "Mark reflection reviewed"}</button>}</> : <p>{item.reflection.prompt ?? "Reflection requested"} · Awaiting pupil response</p>}</div>}
+      {interactive ? <div className="reflection-card"><small>TEACHER FEEDBACK</small><textarea value={feedbackDrafts[item.id] ?? item.student_feedback ?? ""} onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Add concise feedback for this pupil…" style={{width:"100%",minHeight:72,marginTop:8,border:"1px solid #deded8",borderRadius:9,padding:10,font:"12px Manrope",resize:"vertical"}} /><button className="review-after-save" disabled={busyId === item.id} onClick={() => saveFeedback(item)}>{busyId === item.id ? "Saving…" : "Save feedback"}</button>{localMessage[item.id] && <p style={{fontSize:11,marginBottom:0}}>{localMessage[item.id]}</p>}</div> : item.student_feedback && <div className="reflection-card"><small>FEEDBACK</small><p>{item.student_feedback}</p></div>}
+    </div>
+  </article>)}</div>;
 }
