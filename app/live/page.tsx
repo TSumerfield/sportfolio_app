@@ -94,18 +94,19 @@ export default function LiveWorkspace() {
     setView("classPortfolio");
     setClassPortfolioLoading(true);
     setClassEvidence([]);
+    setMessage("");
     const list = await selectClass(item);
     try {
       const portfolios = await Promise.all(list.map((student) => loadPupilPortfolio(student.id)));
       const merged = new Map<string, ClassEvidence>();
       portfolios.forEach((p) => {
         const pupilName = `${p.student.first_name} ${p.student.last_name ?? ""}`.trim();
-        p.items.forEach((item) => {
-          const existing = merged.get(item.id);
+        p.items.forEach((evidenceItem) => {
+          const existing = merged.get(evidenceItem.id);
           if (existing) {
             if (!existing.pupilNames.includes(pupilName)) existing.pupilNames.push(pupilName);
           } else {
-            merged.set(item.id, { ...item, pupilNames: [pupilName] });
+            merged.set(evidenceItem.id, { ...evidenceItem, pupilNames: [pupilName] });
           }
         });
       });
@@ -137,6 +138,7 @@ export default function LiveWorkspace() {
     setPreviewUrl(f ? URL.createObjectURL(f) : null);
     setMessage("");
     if (status === "saved" || status === "error") setStatus("ready");
+    e.target.value = "";
   }
 
   function clearFile() {
@@ -181,6 +183,8 @@ export default function LiveWorkspace() {
 
   const isVideo = file?.type.startsWith("video/");
   const isImage = file?.type.startsWith("image/");
+  const isAudio = file?.type.startsWith("audio/");
+  const fileKind = isVideo ? "VIDEO" : isAudio ? "AUDIO" : "PHOTO";
 
   return <main className="live-shell">
     <aside className="live-sidebar">
@@ -228,15 +232,16 @@ export default function LiveWorkspace() {
             <div className={`camera-view ${previewUrl ? "has-preview" : ""}`}>
               {previewUrl && isVideo && <video src={previewUrl} controls playsInline preload="metadata" />}
               {previewUrl && isImage && <img src={previewUrl} alt="Selected evidence preview" />}
-              {!previewUrl && <><span className="camera-label">READY TO CAPTURE</span><div className="camera-focus">+</div><div className="camera-prompt">Add a photo or video</div></>}
-              {file && <div className="file-pill"><span>{file.type.startsWith("video/") ? "VIDEO" : "PHOTO"}</span>{file.name}<button onClick={clearFile} aria-label="Remove media">×</button></div>}
+              {previewUrl && isAudio && <div className="audio-preview"><span>AUDIO EVIDENCE</span><audio src={previewUrl} controls /></div>}
+              {!previewUrl && <><span className="camera-label">READY TO CAPTURE</span><div className="camera-focus">+</div><div className="camera-prompt">Add photo, video or audio</div></>}
+              {file && <div className="file-pill"><span>{fileKind}</span>{file.name}<button onClick={clearFile} aria-label="Remove media">×</button></div>}
             </div>
-            <div className="camera-controls">
-              <label className="capture-source">▧ Photo<input type="file" accept="image/jpeg,image/png,image/heic" capture="environment" onChange={chooseFile} /></label>
-              <label className="record"><span></span><input type="file" accept="video/mp4,video/quicktime" capture="environment" onChange={chooseFile} /></label>
-              <label className="capture-source selected-mode">▣ Video<input type="file" accept="video/mp4,video/quicktime" capture="environment" onChange={chooseFile} /></label>
+            <div className="camera-controls capture-modes">
+              <label className="capture-source">▧ Photo<input type="file" accept="image/*" capture="environment" onChange={chooseFile} /></label>
+              <label className="capture-source">▣ Video<input type="file" accept="video/*" capture="environment" onChange={chooseFile} /></label>
+              <label className="capture-source">◉ Audio<input type="file" accept="audio/*" capture onChange={chooseFile} /></label>
             </div>
-            <p>{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB · stored privately in Sportfolio` : "Photo and Video open the device camera on iPad or phone."}</p>
+            <p>{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB · stored privately in Sportfolio` : "Choose the exact capture type. Media stays selected if saving fails so you can retry."}</p>
           </section>
 
           <section className="live-panel">
@@ -261,13 +266,13 @@ export default function LiveWorkspace() {
 }
 
 function ClassesView({ classes, onCapture, onPortfolio }: { classes: LiveClass[]; onCapture: (item: LiveClass) => void; onPortfolio: (item: LiveClass) => void }) {
-  return <div className="live-page classes-page"><div className="live-heading"><div><span className="eyebrow-orange">MY SPORTFOLIO</span><h1>Your classes</h1><p>Every class has two clear actions: capture new evidence or review the Sportfolio.</p></div></div><div className="class-grid">{classes.map((item) => <div key={item.id} className="class-card" style={{display:"grid",gap:14}}><div><h2>{item.name}</h2><p>{item.activity ?? "PE"}</p></div><span>{item.pupil_count ?? 0} pupil{item.pupil_count === 1 ? "" : "s"}</span><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><button className="primary-capture" style={{padding:10}} onClick={() => onCapture(item)}>● Capture</button><button className="review-after-save" style={{margin:0}} onClick={() => onPortfolio(item)}>View Sportfolio</button></div></div>)}</div></div>;
+  return <div className="live-page classes-page"><div className="live-heading"><div><span className="eyebrow-orange">MY SPORTFOLIO</span><h1>Your classes</h1><p>Every class has two clear actions: capture new evidence or review the Sportfolio.</p></div></div>{classes.length ? <div className="class-grid">{classes.map((item) => <div key={item.id} className="class-card" style={{display:"grid",gap:14}}><div><h2>{item.name}</h2><p>{item.activity ?? "PE"}</p></div><span>{item.pupil_count ?? 0} pupil{item.pupil_count === 1 ? "" : "s"}</span><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><button className="primary-capture" style={{padding:10}} onClick={() => onCapture(item)}>● Capture</button><button className="review-after-save" style={{margin:0}} onClick={() => onPortfolio(item)}>View Sportfolio</button></div></div>)}</div> : <div className="empty-state"><h3>No classes yet</h3><p>Create or assign a class before capturing evidence.</p></div>}</div>;
 }
 
 function ClassPortfolioView({ activeClass, students, items, loading, error, onBack, onCapture, onPupil }: { activeClass: LiveClass; students: LiveStudent[]; items: ClassEvidence[]; loading: boolean; error: string; onBack: () => void; onCapture: () => void; onPupil: (student: LiveStudent) => void }) {
   return <div className="live-page class-workspace"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← Your classes</button><span className="eyebrow-orange">CLASS SPORTFOLIO</span><h1>{activeClass.name}</h1><p>{activeClass.activity ?? "PE"} · {students.length} pupil{students.length === 1 ? "" : "s"} · {items.length} evidence item{items.length === 1 ? "" : "s"}</p></div><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div>
     <div className="workspace-section"><div className="section-head"><div><h2>Pupil Sportfolios</h2><p>Tap any pupil to see only their evidence.</p></div></div>{students.length ? <div className="pupil-review-grid">{students.map((student) => <button className="pupil-review-card" key={student.id} onClick={() => onPupil(student)}><span className="pupil-avatar">{student.first_name[0]}{student.last_name?.[0] ?? ""}</span><div><strong>{student.first_name} {student.last_name ?? ""}</strong><small>{student.grade ?? activeClass.name}</small></div><b>View Sportfolio →</b></button>)}</div> : <div className="empty-state"><h3>No pupils yet</h3></div>}</div>
-    <div className="workspace-section"><div className="section-head"><div><h2>All class evidence</h2><p>Every saved photo, video, audio clip and observation in this class.</p></div></div>{loading ? <div className="empty-state"><p>Loading class Sportfolio…</p></div> : error && !items.length ? <div className="empty-state"><h3>Could not load evidence</h3><p>{error}</p></div> : items.length ? <EvidenceList items={items} fallbackClass={activeClass.name} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Capture the first piece of evidence for this class.</p><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div>}</div>
+    <div className="workspace-section"><div className="section-head"><div><h2>All class evidence</h2><p>Every saved photo, video, audio clip and observation in this class.</p></div></div>{loading ? <div className="empty-state"><p>Loading class Sportfolio…</p></div> : error && !items.length ? <div className="empty-state"><h3>Could not load evidence</h3><p>{error}</p><button className="primary-capture" onClick={onCapture}>Capture new evidence</button></div> : items.length ? <EvidenceList items={items} fallbackClass={activeClass.name} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Capture the first piece of evidence for this class.</p><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div>}</div>
   </div>;
 }
 
