@@ -6,11 +6,11 @@ import {
   loadPupilLearningContext,
   loadPupilPortfolio,
   loadTeacherWorkspace,
-  saveLiveEvidence,
   type LiveClass,
   type LiveStudent,
   type PupilLearningContext,
 } from "../../../../lib/sportfolio/live";
+import { saveCoverageEvidence, type NextStepDecision } from "../../../../lib/sportfolio/coverage-save";
 import "../../live.css";
 import "./capture.css";
 
@@ -27,6 +27,7 @@ export default function CoverageCapturePage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [nextStep, setNextStep] = useState("");
+  const [nextStepDecision, setNextStepDecision] = useState<NextStepDecision>("new");
   const [requestReflection, setRequestReflection] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -50,7 +51,9 @@ export default function CoverageCapturePage() {
       setStudent(pupil);
       const context = await loadPupilLearningContext(pupil.id);
       setLearningContext(context);
-      setNextStep(context.nextSteps[0]?.final_body ?? context.activeGoals[0]?.body ?? "");
+      const existingNextStep = context.nextSteps[0]?.final_body ?? "";
+      setNextStep(existingNextStep || context.activeGoals[0]?.body || "");
+      setNextStepDecision(existingNextStep ? "accept" : "new");
       setState("ready");
     }).catch((error) => {
       setMessage(error instanceof Error ? error.message : "Unable to open capture queue.");
@@ -65,6 +68,7 @@ export default function CoverageCapturePage() {
   const isVideo = file?.type.startsWith("video/");
   const isAudio = file?.type.startsWith("audio/");
   const latestEvidence = learningContext?.recentEvidence[0] ?? null;
+  const previousNextStep = learningContext?.nextSteps[0]?.final_body ?? null;
   const daysSinceLatest = latestEvidence ? Math.max(0, Math.floor((Date.now() - +new Date(latestEvidence.occurred_at)) / 86400000)) : null;
   const priorityReason = !learningContext?.evidenceCount
     ? "No evidence yet"
@@ -88,6 +92,20 @@ export default function CoverageCapturePage() {
 
   function toggleTag(id: string) {
     setSelectedTags((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  }
+
+  function chooseDecision(decision: NextStepDecision) {
+    setNextStepDecision(decision);
+    if (decision === "accept" && previousNextStep) setNextStep(previousNextStep);
+    if (decision === "edit" && previousNextStep) setNextStep(previousNextStep);
+    if (decision === "replace") setNextStep("");
+    setMessage("");
+  }
+
+  function changeNextStep(value: string) {
+    setNextStep(value);
+    if (previousNextStep && nextStepDecision === "accept" && value.trim() !== previousNextStep.trim()) setNextStepDecision("edit");
+    if (!previousNextStep && nextStepDecision === "none" && value.trim()) setNextStepDecision("new");
   }
 
   async function findNextPupil(classId: string, currentStudentId: string) {
@@ -116,13 +134,16 @@ export default function CoverageCapturePage() {
     setSaveIntent(intent);
     setState("saving"); setMessage("");
     try {
-      const id = await saveLiveEvidence({
+      const finalDecision: NextStepDecision = nextStep.trim() ? nextStepDecision : "none";
+      const id = await saveCoverageEvidence({
         classId: activeClass.id,
-        studentIds: [student.id],
+        studentId: student.id,
         tagIds: selectedTags,
         title: file ? file.name.replace(/\.[^.]+$/, "") : "Coverage capture",
         teacherNote: note,
+        previousNextStep,
         nextStep,
+        nextStepDecision: finalDecision,
         requestReflection,
         file,
       });
@@ -140,7 +161,7 @@ export default function CoverageCapturePage() {
       setMessage(intent === "next" ? `Evidence saved securely · ${id.slice(0, 8)} · queue complete` : `Evidence saved securely · ${id.slice(0, 8)}`);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setFile(null); setPreviewUrl(null);
-      setSelectedTags([]); setNote(""); setNextStep(""); setRequestReflection(false);
+      setSelectedTags([]); setNote(""); setNextStep(""); setNextStepDecision("none"); setRequestReflection(false);
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Could not save evidence. Your selected media is still here — retry when ready.");
@@ -180,10 +201,23 @@ export default function CoverageCapturePage() {
             <div className="queue-history-row"><small>LAST OBSERVATION</small><strong>{latestEvidence.teacher_note || latestEvidence.title || "Evidence captured"}</strong><span>{new Date(latestEvidence.occurred_at).toLocaleDateString()}</span></div>
             {!!latestEvidence.tags.length && <div className="queue-history-tags">{latestEvidence.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
           </> : <div className="queue-history-empty"><strong>No previous evidence yet.</strong><span>This capture starts the pupil's learning record.</span></div>}
-          <div className="queue-history-row next"><small>CURRENT DIRECTION</small><strong>{learningContext?.nextSteps[0]?.final_body ?? learningContext?.activeGoals[0]?.body ?? "No next step or goal recorded yet."}</strong></div>
+          <div className="queue-history-row next"><small>CURRENT DIRECTION</small><strong>{previousNextStep ?? learningContext?.activeGoals[0]?.body ?? "No next step or goal recorded yet."}</strong></div>
         </div>
         <div className="queue-block"><div className="queue-title"><h2>Tag the learning</h2><span>{selectedTags.length} selected</span></div><div className="queue-tags">{workspace.tags.map((tag) => <button key={tag.id} className={selectedTags.includes(tag.id) ? "active" : ""} onClick={() => toggleTag(tag.id)}>{tag.name}</button>)}</div></div>
-        <div className="queue-block"><label>Quick observation<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="What did you notice?" /></label><label>Next learning step<textarea value={nextStep} onChange={(event) => setNextStep(event.target.value)} placeholder="What should this pupil focus on next?" /></label><label className="queue-reflect"><input type="checkbox" checked={requestReflection} onChange={(event) => setRequestReflection(event.target.checked)} /><span><strong>Request reflection</strong><small>Creates a private pupil reflection task.</small></span></label></div>
+        <div className="queue-block">
+          <label>Quick observation<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="What did you notice?" /></label>
+          <div className="next-step-decision">
+            <div className="queue-title"><h2>Next learning step</h2><span>Teacher confirmed</span></div>
+            {previousNextStep ? <div className="decision-actions" role="group" aria-label="Next step decision">
+              <button className={nextStepDecision === "accept" ? "active" : ""} onClick={() => chooseDecision("accept")}>✓ Keep</button>
+              <button className={nextStepDecision === "edit" ? "active" : ""} onClick={() => chooseDecision("edit")}>Refine</button>
+              <button className={nextStepDecision === "replace" ? "active" : ""} onClick={() => chooseDecision("replace")}>Replace</button>
+            </div> : <p className="decision-new">No previous next step. Add one from what you see now.</p>}
+            <textarea value={nextStep} onChange={(event) => changeNextStep(event.target.value)} placeholder="What should this pupil focus on next?" />
+            <div className={`decision-status ${nextStepDecision}`}><strong>{decisionLabel(nextStepDecision)}</strong><span>{decisionHelp(nextStepDecision, !!previousNextStep)}</span></div>
+          </div>
+          <label className="queue-reflect"><input type="checkbox" checked={requestReflection} onChange={(event) => setRequestReflection(event.target.checked)} /><span><strong>Request reflection</strong><small>Creates a private pupil reflection task using the teacher-confirmed next step.</small></span></label>
+        </div>
         <div className="queue-save">
           <div className="queue-save-actions"><button disabled={state === "saving" || state === "saved"} onClick={() => save("stay")}>{state === "saving" && saveIntent === "stay" ? "Saving…" : state === "saved" ? "✓ Evidence saved" : "Save evidence"}</button><button className="queue-save-next" disabled={state === "saving" || state === "saved"} onClick={() => save("next")}>{state === "saving" && saveIntent === "next" ? "Saving + finding next…" : "Save & next →"}</button></div>
           {message && <div className={`queue-message ${state}`}>{message}</div>}
@@ -193,4 +227,20 @@ export default function CoverageCapturePage() {
       </section>
     </div>
   </main>;
+}
+
+function decisionLabel(decision: NextStepDecision) {
+  if (decision === "accept") return "Keep current direction";
+  if (decision === "edit") return "Teacher refinement";
+  if (decision === "replace") return "Teacher replacement";
+  if (decision === "new") return "New teacher next step";
+  return "No next step saved";
+}
+
+function decisionHelp(decision: NextStepDecision, hadPrevious: boolean) {
+  if (decision === "accept") return "The previous next step remains right after reviewing this evidence.";
+  if (decision === "edit") return "Your change will be stored against the previous wording so Sportfolio can learn from the correction.";
+  if (decision === "replace") return "The previous direction is being superseded by a materially different next step.";
+  if (decision === "new") return hadPrevious ? "Add the next direction." : "This becomes the first structured next step for this pupil.";
+  return "This evidence will save without creating a new next step.";
 }
