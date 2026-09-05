@@ -48,7 +48,7 @@ export default function Home() {
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>
           <a href="#why">Why Sportfolio</a>
-          <a href="/login" className="land-nav-cta">Open Sportfolio</a>
+          <a href="#how" className="land-nav-cta">Explore the build</a>
         </div>
       </nav>
 
@@ -58,8 +58,8 @@ export default function Home() {
           <h1>Make learning in movement <em>visible.</em></h1>
           <p className="land-lead">Capture the moment. Tag the pupils. Connect it to learning. Build a private evidence record that gets more useful every lesson.</p>
           <div className="land-actions">
-            <a className="land-primary" href="/login">Open pilot <span>↗</span></a>
-            <a className="land-secondary" href="#how">See the 30-second flow</a>
+            <a className="land-primary" href="#how">Explore the build <span>↓</span></a>
+            <a className="land-secondary" href="#why">Why Sportfolio</a>
           </div>
           <div className="land-proof">
             <span><b>Private</b> by default</span>
@@ -99,7 +99,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div className="scene-note one"><b>&lt;30 sec</b>capture → pupils → learning → save</div>
+          <div className="scene-note one"><b>Designed for &lt;30 sec</b>capture → pupils → learning → save</div>
           <div className="scene-note two"><b>1 moment</b>can belong to multiple pupils</div>
         </div>
       </section>
@@ -163,11 +163,11 @@ export default function Home() {
       </section>
 
       <section className="pilot">
-        <div><div className="land-kicker">Sportfolio pilot</div><h2>Built by a PE teacher for the reality of PE.</h2><p>This is an early pilot, so some edges may still be clunky. That is intentional. The aim is to prove a faster, safer and more useful evidence workflow before adding complexity.</p></div>
-        <a href="/login" className="land-primary">Open Sportfolio</a>
+        <div><div className="land-kicker">Sportfolio build</div><h2>Built by a PE teacher for the reality of PE.</h2><p>Sportfolio is still in active build. This public page shows the direction and workflow while pupil data remains behind the private product layer.</p></div>
+        <a href="#top" className="land-primary">Back to top</a>
       </section>
 
-      <footer className="land-footer"><span><strong>SPORTFOLIO</strong> · Private PE evidence portfolios</span><span>Pilot release · 2026</span></footer>
+      <footer className="land-footer"><span><strong>SPORTFOLIO</strong> · Private PE evidence portfolios</span><span>Build phase · 2026</span></footer>
     </main>
   );
 }
