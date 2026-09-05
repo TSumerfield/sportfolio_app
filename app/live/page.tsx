@@ -8,9 +8,12 @@ import {
   loadTeacherWorkspace,
   markReflectionReviewed,
   saveLiveEvidence,
+  savePupilGoal,
   saveTeacherFeedback,
+  updatePupilGoalStatus,
   type LiveClass,
   type LiveStudent,
+  type PupilGoal,
   type PupilLearningContext,
   type PupilPortfolio,
   type PupilPortfolioItem,
@@ -130,12 +133,17 @@ export default function LiveWorkspace() {
     finally { setPortfolioLoading(false); }
   }
 
+  async function refreshPortfolio() {
+    if (!portfolio) return;
+    setPortfolio(await loadPupilPortfolio(portfolio.student.id));
+  }
+
   async function reviewReflection(reflectionId: string) {
     if (!portfolio) return;
     setMessage("");
     try {
       await markReflectionReviewed(reflectionId);
-      setPortfolio(await loadPupilPortfolio(portfolio.student.id));
+      await refreshPortfolio();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to mark reflection reviewed.");
       throw error;
@@ -147,9 +155,31 @@ export default function LiveWorkspace() {
     setMessage("");
     try {
       await saveTeacherFeedback(itemId, feedback);
-      setPortfolio(await loadPupilPortfolio(portfolio.student.id));
+      await refreshPortfolio();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save feedback.");
+      throw error;
+    }
+  }
+
+  async function addGoal(studentId: string, body: string, targetDate?: string) {
+    setMessage("");
+    try {
+      await savePupilGoal(studentId, body, targetDate);
+      await refreshPortfolio();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to save goal.");
+      throw error;
+    }
+  }
+
+  async function changeGoalStatus(goalId: string, goalStatus: PupilGoal["status"]) {
+    setMessage("");
+    try {
+      await updatePupilGoalStatus(goalId, goalStatus);
+      await refreshPortfolio();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to update goal.");
       throw error;
     }
   }
@@ -202,10 +232,10 @@ export default function LiveWorkspace() {
     }
   }
 
-  async function signOut() { await supabase.auth.signOut(); window.location.replace("/login"); }
+  async function signOut() { await supabase.auth.signOut(); window.location.replace("/"); }
 
   if (status === "loading" && !workspace) return <main className="live-loading">Loading Sportfolio…</main>;
-  if (!workspace) return <main className="live-loading"><div><h1>Sportfolio</h1><p>{message}</p><a href="/login">Sign in</a></div></main>;
+  if (!workspace) return <main className="live-loading"><div><h1>Sportfolio</h1><p>{message}</p><a href="/">Back to Sportfolio</a></div></main>;
 
   const isVideo = file?.type.startsWith("video/");
   const isImage = file?.type.startsWith("image/");
@@ -220,17 +250,15 @@ export default function LiveWorkspace() {
         <button className={view === "classPortfolio" || view === "pupilPortfolio" ? "active" : ""} onClick={() => activeClass && openClassPortfolio(activeClass)}>◎ Sportfolios</button>
         <button className={view === "capture" ? "active capture-nav" : "capture-nav"} onClick={() => activeClass && openCaptureForClass(activeClass)}>● Capture</button>
       </nav>
-      <button className="signout" onClick={signOut}>Sign out</button>
+      <button className="signout" onClick={signOut}>Exit build</button>
     </aside>
 
     <section className="live-content">
       <header><div><small>TEACHER PILOT</small><strong>{activeClass?.name ?? "My Sportfolio"}</strong></div><div className="live-badge">● Connected</div></header>
 
       {view === "classes" && <ClassesView classes={workspace.classes} onCapture={openCaptureForClass} onPortfolio={openClassPortfolio} />}
-
       {view === "classPortfolio" && activeClass && <ClassPortfolioView activeClass={activeClass} students={students} items={classEvidence} loading={classPortfolioLoading} error={message} onBack={() => setView("classes")} onCapture={() => openCaptureForClass(activeClass)} onPupil={openPupilPortfolio} />}
-
-      {view === "pupilPortfolio" && <PupilPortfolioView portfolio={portfolio} loading={portfolioLoading} error={message} activeClass={activeClass} onBack={() => activeClass && openClassPortfolio(activeClass)} onCapture={() => activeClass && openCaptureForClass(activeClass)} onReview={reviewReflection} onFeedback={updateFeedback} />}
+      {view === "pupilPortfolio" && <PupilPortfolioView portfolio={portfolio} loading={portfolioLoading} error={message} activeClass={activeClass} onBack={() => activeClass && openClassPortfolio(activeClass)} onCapture={() => activeClass && openCaptureForClass(activeClass)} onReview={reviewReflection} onFeedback={updateFeedback} onSaveGoal={addGoal} onGoalStatus={changeGoalStatus} />}
 
       {view === "capture" && activeClass && <div className="live-page">
         <div className="live-heading"><div><button className="back-link" onClick={() => openClassPortfolio(activeClass)}>← {activeClass.name} Sportfolio</button><span className="eyebrow-orange">QUICK CAPTURE</span><h1>Capture the moment.</h1><p>Select pupils, tag the learning and save.</p></div><div className="class-chip">{activeClass.activity ?? "PE"}<b>{activeClass.academic_year}</b></div></div>
@@ -268,12 +296,36 @@ function ClassPortfolioView({ activeClass, students, items, loading, error, onBa
   return <div className="live-page class-workspace"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← Your classes</button><span className="eyebrow-orange">CLASS SPORTFOLIO</span><h1>{activeClass.name}</h1><p>{activeClass.activity ?? "PE"} · {students.length} pupil{students.length === 1 ? "" : "s"} · {items.length} evidence item{items.length === 1 ? "" : "s"}</p></div><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div><div className="workspace-section"><div className="section-head"><div><h2>Pupil Sportfolios</h2><p>Tap any pupil to see only their evidence.</p></div></div>{students.length ? <div className="pupil-review-grid">{students.map((student) => <button className="pupil-review-card" key={student.id} onClick={() => onPupil(student)}><span className="pupil-avatar">{student.first_name[0]}{student.last_name?.[0] ?? ""}</span><div><strong>{student.first_name} {student.last_name ?? ""}</strong><small>{student.grade ?? activeClass.name}</small></div><b>View Sportfolio →</b></button>)}</div> : <div className="empty-state"><h3>No pupils yet</h3></div>}</div><div className="workspace-section"><div className="section-head"><div><h2>All class evidence</h2><p>Every saved photo, video, audio clip and observation in this class.</p></div></div>{loading ? <div className="empty-state"><p>Loading class Sportfolio…</p></div> : error && !items.length ? <div className="empty-state"><h3>Could not load evidence</h3><p>{error}</p><button className="primary-capture" onClick={onCapture}>Capture new evidence</button></div> : items.length ? <EvidenceList items={items} fallbackClass={activeClass.name} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Capture the first piece of evidence for this class.</p><button className="primary-capture" onClick={onCapture}>● Capture evidence</button></div>}</div></div>;
 }
 
-function PupilPortfolioView({ portfolio, loading, error, activeClass, onBack, onCapture, onReview, onFeedback }: { portfolio: PupilPortfolio | null; loading: boolean; error: string; activeClass: LiveClass | null; onBack: () => void; onCapture: () => void; onReview: (reflectionId: string) => Promise<void>; onFeedback: (itemId: string, feedback: string) => Promise<void> }) {
+function PupilPortfolioView({ portfolio, loading, error, activeClass, onBack, onCapture, onReview, onFeedback, onSaveGoal, onGoalStatus }: { portfolio: PupilPortfolio | null; loading: boolean; error: string; activeClass: LiveClass | null; onBack: () => void; onCapture: () => void; onReview: (reflectionId: string) => Promise<void>; onFeedback: (itemId: string, feedback: string) => Promise<void>; onSaveGoal: (studentId: string, body: string, targetDate?: string) => Promise<void>; onGoalStatus: (goalId: string, status: PupilGoal["status"]) => Promise<void> }) {
   if (loading) return <div className="live-page portfolio-page"><button className="back-link" onClick={onBack}>← Class Sportfolio</button><div className="empty-state"><p>Loading pupil Sportfolio…</p></div></div>;
   if (!portfolio) return <div className="live-page portfolio-page"><button className="back-link" onClick={onBack}>← Class Sportfolio</button><div className="empty-state"><h3>Could not load this Sportfolio</h3><p>{error}</p></div></div>;
   const s = portfolio.student;
   const pupilItems: ClassEvidence[] = portfolio.items.map((item) => ({ ...item, pupilNames: [`${s.first_name} ${s.last_name ?? ""}`.trim()] }));
-  return <div className="live-page portfolio-page"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← {activeClass?.name ?? "Class"} Sportfolio</button><span className="eyebrow-orange">PUPIL SPORTFOLIO</span><div className="portfolio-title"><span className="pupil-avatar large">{s.first_name[0]}{s.last_name?.[0] ?? ""}</span><div><h1>{s.first_name} {s.last_name ?? ""}</h1><p>{s.grade ?? activeClass?.name} · {portfolio.evidenceCount} evidence item{portfolio.evidenceCount === 1 ? "" : "s"}</p></div></div></div><button className="primary-capture" onClick={onCapture}>● Capture for class</button></div>{(portfolio.currentNextStep || portfolio.currentGoal) && <div className="next-step-banner"><small>CURRENT LEARNING PRIORITY</small><strong>{portfolio.currentNextStep ?? portfolio.currentGoal}</strong></div>}{pupilItems.length ? <EvidenceList items={pupilItems} fallbackClass={activeClass?.name ?? "Class"} interactive onReview={onReview} onFeedback={onFeedback} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Nothing has been saved to this pupil's Sportfolio yet.</p></div>}</div>;
+  return <div className="live-page portfolio-page"><div className="workspace-top"><div><button className="back-link" onClick={onBack}>← {activeClass?.name ?? "Class"} Sportfolio</button><span className="eyebrow-orange">PUPIL SPORTFOLIO</span><div className="portfolio-title"><span className="pupil-avatar large">{s.first_name[0]}{s.last_name?.[0] ?? ""}</span><div><h1>{s.first_name} {s.last_name ?? ""}</h1><p>{s.grade ?? activeClass?.name} · {portfolio.evidenceCount} evidence item{portfolio.evidenceCount === 1 ? "" : "s"}</p></div></div></div><button className="primary-capture" onClick={onCapture}>● Capture for class</button></div>{(portfolio.currentNextStep || portfolio.currentGoal) && <div className="next-step-banner"><small>CURRENT LEARNING PRIORITY</small><strong>{portfolio.currentNextStep ?? portfolio.currentGoal}</strong></div>}<GoalManager studentId={s.id} goals={portfolio.goals} onSave={onSaveGoal} onStatus={onGoalStatus} />{pupilItems.length ? <EvidenceList items={pupilItems} fallbackClass={activeClass?.name ?? "Class"} interactive onReview={onReview} onFeedback={onFeedback} /> : <div className="empty-state"><h3>No evidence yet</h3><p>Nothing has been saved to this pupil's Sportfolio yet.</p></div>}</div>;
+}
+
+function GoalManager({ studentId, goals, onSave, onStatus }: { studentId: string; goals: PupilGoal[]; onSave: (studentId: string, body: string, targetDate?: string) => Promise<void>; onStatus: (goalId: string, status: PupilGoal["status"]) => Promise<void> }) {
+  const [body, setBody] = useState("");
+  const [targetDate, setTargetDate] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [localMessage, setLocalMessage] = useState("");
+
+  async function createGoal() {
+    if (body.trim().length < 3) return;
+    setBusy("new"); setLocalMessage("");
+    try { await onSave(studentId, body, targetDate || undefined); setBody(""); setTargetDate(""); setLocalMessage("Goal saved."); }
+    catch { setLocalMessage("Goal could not be saved."); }
+    finally { setBusy(null); }
+  }
+
+  async function change(goalId: string, status: PupilGoal["status"]) {
+    setBusy(goalId); setLocalMessage("");
+    try { await onStatus(goalId, status); setLocalMessage(status === "achieved" ? "Goal marked achieved." : "Goal updated."); }
+    catch { setLocalMessage("Goal could not be updated."); }
+    finally { setBusy(null); }
+  }
+
+  return <section className="workspace-section" style={{marginBottom:22}}><div className="section-head"><div><h2>Goals</h2><p>Turn evidence and next steps into a clear pupil target.</p></div></div><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 180px auto",gap:8,alignItems:"end",marginBottom:12}}><label className="note-label" style={{margin:0}}>New goal<textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="What should this pupil work towards?" style={{minHeight:70}} /></label><label className="note-label" style={{margin:0}}>Target date<input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} style={{width:"100%",height:44,border:"1px solid #deded8",borderRadius:9,padding:"0 10px",background:"#fff"}} /></label><button className="primary-capture" disabled={busy === "new" || body.trim().length < 3} onClick={createGoal}>{busy === "new" ? "Saving…" : "Set goal"}</button></div>{goals.length ? <div style={{display:"grid",gap:8}}>{goals.map((goal) => <div key={goal.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:12,alignItems:"center",padding:"12px 14px",border:"1px solid #e4e3dd",borderRadius:12,background:"#fff"}}><div><small style={{font:"600 10px 'DM Mono',monospace",color:"#777"}}>{goal.status === "working_on_it" ? "WORKING ON IT" : "ACTIVE"}{goal.target_date ? ` · ${new Date(goal.target_date).toLocaleDateString()}` : ""}</small><strong style={{display:"block",marginTop:4}}>{goal.body}</strong></div><div style={{display:"flex",gap:6}}>{goal.status !== "working_on_it" && <button className="review-after-save" disabled={busy === goal.id} onClick={() => change(goal.id, "working_on_it")}>Start</button>}<button className="review-after-save" disabled={busy === goal.id} onClick={() => change(goal.id, "achieved")}>✓ Achieved</button></div></div>)}</div> : <p className="empty-copy">No active goal yet.</p>}{localMessage && <p style={{fontSize:11,marginTop:8}}>{localMessage}</p>}</section>;
 }
 
 function EvidenceList({ items, fallbackClass, interactive = false, onReview, onFeedback }: { items: ClassEvidence[]; fallbackClass: string; interactive?: boolean; onReview?: (reflectionId: string) => Promise<void>; onFeedback?: (itemId: string, feedback: string) => Promise<void> }) {
