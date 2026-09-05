@@ -1,7 +1,16 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { loadClassStudents, loadPupilPortfolio, loadTeacherWorkspace, saveLiveEvidence, type LiveClass, type LiveStudent } from "../../../../lib/sportfolio/live";
+import {
+  loadClassStudents,
+  loadPupilLearningContext,
+  loadPupilPortfolio,
+  loadTeacherWorkspace,
+  saveLiveEvidence,
+  type LiveClass,
+  type LiveStudent,
+  type PupilLearningContext,
+} from "../../../../lib/sportfolio/live";
 import "../../live.css";
 import "./capture.css";
 
@@ -14,6 +23,7 @@ export default function CoverageCapturePage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [activeClass, setActiveClass] = useState<LiveClass | null>(null);
   const [student, setStudent] = useState<LiveStudent | null>(null);
+  const [learningContext, setLearningContext] = useState<PupilLearningContext | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [nextStep, setNextStep] = useState("");
@@ -38,6 +48,9 @@ export default function CoverageCapturePage() {
       const pupil = pupils.find((item) => item.id === studentId) ?? null;
       if (!pupil) throw new Error("This pupil is not available in the selected class.");
       setStudent(pupil);
+      const context = await loadPupilLearningContext(pupil.id);
+      setLearningContext(context);
+      setNextStep(context.nextSteps[0]?.final_body ?? context.activeGoals[0]?.body ?? "");
       setState("ready");
     }).catch((error) => {
       setMessage(error instanceof Error ? error.message : "Unable to open capture queue.");
@@ -51,6 +64,17 @@ export default function CoverageCapturePage() {
   const isImage = file?.type.startsWith("image/");
   const isVideo = file?.type.startsWith("video/");
   const isAudio = file?.type.startsWith("audio/");
+  const latestEvidence = learningContext?.recentEvidence[0] ?? null;
+  const daysSinceLatest = latestEvidence ? Math.max(0, Math.floor((Date.now() - +new Date(latestEvidence.occurred_at)) / 86400000)) : null;
+  const priorityReason = !learningContext?.evidenceCount
+    ? "No evidence yet"
+    : daysSinceLatest !== null && daysSinceLatest > 21
+      ? `${daysSinceLatest} days since last observation`
+      : daysSinceLatest !== null && daysSinceLatest > 14
+        ? `Observation rhythm due · ${daysSinceLatest} days`
+        : !learningContext.nextSteps.length && !learningContext.activeGoals.length
+          ? "Evidence exists, but no learning direction is set"
+          : "Lowest current coverage in this class";
 
   function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null;
@@ -70,15 +94,20 @@ export default function CoverageCapturePage() {
     const pupils = await loadClassStudents(classId);
     if (pupils.length <= 1) return null;
     const portfolios = await Promise.all(pupils.map((pupil) => loadPupilPortfolio(pupil.id)));
+    const now = Date.now();
     const ranked = portfolios
       .filter((portfolio) => portfolio.student.id !== currentStudentId)
-      .map((portfolio) => ({
-        student: portfolio.student,
-        evidence: portfolio.evidenceCount,
-        hasDirection: !!(portfolio.currentNextStep || portfolio.currentGoal),
-        latest: portfolio.items[0]?.occurred_at ? +new Date(portfolio.items[0].occurred_at) : 0,
-      }))
-      .sort((a, b) => a.evidence - b.evidence || Number(a.hasDirection) - Number(b.hasDirection) || a.latest - b.latest);
+      .map((portfolio) => {
+        const latest = portfolio.items[0]?.occurred_at ? +new Date(portfolio.items[0].occurred_at) : 0;
+        const ageDays = latest ? Math.floor((now - latest) / 86400000) : 99999;
+        return {
+          student: portfolio.student,
+          evidence: portfolio.evidenceCount,
+          hasDirection: !!(portfolio.currentNextStep || portfolio.currentGoal),
+          ageDays,
+        };
+      })
+      .sort((a, b) => Number(b.ageDays > 21) - Number(a.ageDays > 21) || b.ageDays - a.ageDays || a.evidence - b.evidence || Number(a.hasDirection) - Number(b.hasDirection));
     return ranked[0]?.student ?? null;
   }
 
@@ -126,6 +155,10 @@ export default function CoverageCapturePage() {
     <div className="queue-page">
       <section className="queue-focus">
         <div className="queue-pupil"><span>{initials}</span><div><small>PRIORITY PUPIL</small><h1>{student.first_name} {student.last_name ?? ""}</h1><p>{student.grade ?? activeClass.name} · one focused capture</p></div></div>
+        <div className="queue-priority-context">
+          <div><small>WHY NOW</small><strong>{priorityReason}</strong></div>
+          <span>{learningContext?.evidenceCount ?? 0} evidence {(learningContext?.evidenceCount ?? 0) === 1 ? "item" : "items"}</span>
+        </div>
         <div className={`queue-media ${previewUrl ? "has-preview" : ""}`}>
           {previewUrl && isImage && <img src={previewUrl} alt="Selected evidence preview" />}
           {previewUrl && isVideo && <video src={previewUrl} controls playsInline preload="metadata" />}
@@ -141,6 +174,14 @@ export default function CoverageCapturePage() {
       </section>
 
       <section className="queue-panel">
+        <div className="queue-learning-history">
+          <div className="queue-title"><h2>Before you capture</h2><span>Learning history</span></div>
+          {latestEvidence ? <>
+            <div className="queue-history-row"><small>LAST OBSERVATION</small><strong>{latestEvidence.teacher_note || latestEvidence.title || "Evidence captured"}</strong><span>{new Date(latestEvidence.occurred_at).toLocaleDateString()}</span></div>
+            {!!latestEvidence.tags.length && <div className="queue-history-tags">{latestEvidence.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
+          </> : <div className="queue-history-empty"><strong>No previous evidence yet.</strong><span>This capture starts the pupil's learning record.</span></div>}
+          <div className="queue-history-row next"><small>CURRENT DIRECTION</small><strong>{learningContext?.nextSteps[0]?.final_body ?? learningContext?.activeGoals[0]?.body ?? "No next step or goal recorded yet."}</strong></div>
+        </div>
         <div className="queue-block"><div className="queue-title"><h2>Tag the learning</h2><span>{selectedTags.length} selected</span></div><div className="queue-tags">{workspace.tags.map((tag) => <button key={tag.id} className={selectedTags.includes(tag.id) ? "active" : ""} onClick={() => toggleTag(tag.id)}>{tag.name}</button>)}</div></div>
         <div className="queue-block"><label>Quick observation<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="What did you notice?" /></label><label>Next learning step<textarea value={nextStep} onChange={(event) => setNextStep(event.target.value)} placeholder="What should this pupil focus on next?" /></label><label className="queue-reflect"><input type="checkbox" checked={requestReflection} onChange={(event) => setRequestReflection(event.target.checked)} /><span><strong>Request reflection</strong><small>Creates a private pupil reflection task.</small></span></label></div>
         <div className="queue-save">
