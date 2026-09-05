@@ -1,13 +1,14 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { loadClassStudents, loadTeacherWorkspace, saveLiveEvidence, type LiveClass, type LiveStudent } from "../../../../lib/sportfolio/live";
+import { loadClassStudents, loadPupilPortfolio, loadTeacherWorkspace, saveLiveEvidence, type LiveClass, type LiveStudent } from "../../../../lib/sportfolio/live";
 import "../../live.css";
 import "./capture.css";
 
 type Tag = { id: string; name: string; category: string };
 type Workspace = { classes: LiveClass[]; tags: Tag[] };
 type SaveState = "loading" | "ready" | "saving" | "saved" | "error";
+type SaveIntent = "stay" | "next";
 
 export default function CoverageCapturePage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -20,6 +21,7 @@ export default function CoverageCapturePage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [state, setState] = useState<SaveState>("loading");
+  const [saveIntent, setSaveIntent] = useState<SaveIntent>("stay");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -64,8 +66,25 @@ export default function CoverageCapturePage() {
     setSelectedTags((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
   }
 
-  async function save() {
+  async function findNextPupil(classId: string, currentStudentId: string) {
+    const pupils = await loadClassStudents(classId);
+    if (pupils.length <= 1) return null;
+    const portfolios = await Promise.all(pupils.map((pupil) => loadPupilPortfolio(pupil.id)));
+    const ranked = portfolios
+      .filter((portfolio) => portfolio.student.id !== currentStudentId)
+      .map((portfolio) => ({
+        student: portfolio.student,
+        evidence: portfolio.evidenceCount,
+        hasDirection: !!(portfolio.currentNextStep || portfolio.currentGoal),
+        latest: portfolio.items[0]?.occurred_at ? +new Date(portfolio.items[0].occurred_at) : 0,
+      }))
+      .sort((a, b) => a.evidence - b.evidence || Number(a.hasDirection) - Number(b.hasDirection) || a.latest - b.latest);
+    return ranked[0]?.student ?? null;
+  }
+
+  async function save(intent: SaveIntent = "stay") {
     if (!activeClass || !student) return;
+    setSaveIntent(intent);
     setState("saving"); setMessage("");
     try {
       const id = await saveLiveEvidence({
@@ -78,8 +97,21 @@ export default function CoverageCapturePage() {
         requestReflection,
         file,
       });
+
+      if (intent === "next") {
+        setMessage("Saved securely. Finding the next pupil…");
+        const next = await findNextPupil(activeClass.id, student.id);
+        if (next) {
+          window.location.replace(`/live/coverage/capture?class=${activeClass.id}&student=${next.id}`);
+          return;
+        }
+      }
+
       setState("saved");
-      setMessage(`Evidence saved securely · ${id.slice(0, 8)}`);
+      setMessage(intent === "next" ? `Evidence saved securely · ${id.slice(0, 8)} · queue complete` : `Evidence saved securely · ${id.slice(0, 8)}`);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setFile(null); setPreviewUrl(null);
+      setSelectedTags([]); setNote(""); setNextStep(""); setRequestReflection(false);
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Could not save evidence. Your selected media is still here — retry when ready.");
@@ -90,7 +122,7 @@ export default function CoverageCapturePage() {
   if (!workspace || !activeClass || !student) return <main className="queue-loading"><div><h1>Capture unavailable</h1><p>{message}</p><a href="/live/coverage">Back to coverage</a></div></main>;
 
   return <main className="queue-shell">
-    <header className="queue-top"><a href="/live/coverage">← Coverage</a><div><small>CAPTURE NEXT</small><strong>{activeClass.name}</strong></div><span>Private evidence</span></header>
+    <header className="queue-top"><a href={`/live/coverage?class=${activeClass.id}`}>← Coverage</a><div><small>CAPTURE NEXT</small><strong>{activeClass.name}</strong></div><span>Private evidence</span></header>
     <div className="queue-page">
       <section className="queue-focus">
         <div className="queue-pupil"><span>{initials}</span><div><small>PRIORITY PUPIL</small><h1>{student.first_name} {student.last_name ?? ""}</h1><p>{student.grade ?? activeClass.name} · one focused capture</p></div></div>
@@ -111,7 +143,12 @@ export default function CoverageCapturePage() {
       <section className="queue-panel">
         <div className="queue-block"><div className="queue-title"><h2>Tag the learning</h2><span>{selectedTags.length} selected</span></div><div className="queue-tags">{workspace.tags.map((tag) => <button key={tag.id} className={selectedTags.includes(tag.id) ? "active" : ""} onClick={() => toggleTag(tag.id)}>{tag.name}</button>)}</div></div>
         <div className="queue-block"><label>Quick observation<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="What did you notice?" /></label><label>Next learning step<textarea value={nextStep} onChange={(event) => setNextStep(event.target.value)} placeholder="What should this pupil focus on next?" /></label><label className="queue-reflect"><input type="checkbox" checked={requestReflection} onChange={(event) => setRequestReflection(event.target.checked)} /><span><strong>Request reflection</strong><small>Creates a private pupil reflection task.</small></span></label></div>
-        <div className="queue-save"><button disabled={state === "saving" || state === "saved"} onClick={save}>{state === "saving" ? (file ? "Uploading + saving…" : "Saving securely…") : state === "saved" ? "✓ Evidence saved" : "Save evidence"}</button>{message && <div className={`queue-message ${state}`}>{message}</div>}{state === "error" && <button className="queue-retry" onClick={save}>Retry save</button>}{state === "saved" && <><a className="queue-next" href={`/live/coverage?class=${activeClass.id}`}>Choose next pupil</a><a className="queue-secondary" href="/live">Back to Sportfolio</a></>}</div>
+        <div className="queue-save">
+          <div className="queue-save-actions"><button disabled={state === "saving" || state === "saved"} onClick={() => save("stay")}>{state === "saving" && saveIntent === "stay" ? "Saving…" : state === "saved" ? "✓ Evidence saved" : "Save evidence"}</button><button className="queue-save-next" disabled={state === "saving" || state === "saved"} onClick={() => save("next")}>{state === "saving" && saveIntent === "next" ? "Saving + finding next…" : "Save & next →"}</button></div>
+          {message && <div className={`queue-message ${state}`}>{message}</div>}
+          {state === "error" && <button className="queue-retry" onClick={() => save(saveIntent)}>Retry save</button>}
+          {state === "saved" && <><a className="queue-next" href={`/live/coverage?class=${activeClass.id}`}>Return to coverage</a><a className="queue-secondary" href="/live">Back to Sportfolio</a></>}
+        </div>
       </section>
     </div>
   </main>;
