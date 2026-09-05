@@ -2,11 +2,12 @@ import { supabase } from "../supabase/client";
 
 export type LiveStudent = { id: string; first_name: string; last_name: string | null; grade: string | null; };
 export type LiveClass = { id: string; name: string; academic_year: string; activity: string | null; pupil_count?: number; };
+export type PupilGoal = { id: string; body: string; status: "not_started" | "working_on_it" | "achieved"; target_date: string | null };
 export type PupilLearningContext = {
   evidenceCount: number;
   recentEvidence: { id: string; title: string | null; teacher_note: string | null; occurred_at: string; tags: string[] }[];
   nextSteps: { id: string; final_body: string; status: string; created_at: string }[];
-  activeGoals: { id: string; body: string; status: string; target_date: string | null }[];
+  activeGoals: PupilGoal[];
 };
 export type PupilPortfolioItem = {
   id: string;
@@ -34,6 +35,7 @@ export type PupilPortfolio = {
   items: PupilPortfolioItem[];
   currentNextStep: string | null;
   currentGoal: string | null;
+  goals: PupilGoal[];
 };
 
 export async function requireUser() {
@@ -95,9 +97,9 @@ export async function loadPupilLearningContext(studentId: string): Promise<Pupil
   }
   const { data: nextSteps, error: nextStepsError } = await supabase.from("sportfolio_next_steps").select("id,final_body,status,created_at").eq("student_id", studentId).neq("status", "ignored").order("created_at", { ascending: false }).limit(5);
   if (nextStepsError) throw nextStepsError;
-  const { data: goals, error: goalsError } = await supabase.from("sportfolio_goals").select("id,body,status,target_date").eq("student_id", studentId).neq("status", "achieved").order("created_at", { ascending: false }).limit(3);
+  const { data: goals, error: goalsError } = await supabase.from("sportfolio_goals").select("id,body,status,target_date").eq("student_id", studentId).neq("status", "achieved").order("created_at", { ascending: false }).limit(5);
   if (goalsError) throw goalsError;
-  return { evidenceCount: itemIds.length, recentEvidence, nextSteps: nextSteps ?? [], activeGoals: goals ?? [] };
+  return { evidenceCount: itemIds.length, recentEvidence, nextSteps: nextSteps ?? [], activeGoals: (goals ?? []) as PupilGoal[] };
 }
 
 export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfolio> {
@@ -109,7 +111,7 @@ export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfo
   if (linksError) throw linksError;
   const itemIds = (links ?? []).map((row) => row.item_id);
   const context = await loadPupilLearningContext(studentId);
-  if (!itemIds.length) return { student: student as LiveStudent, evidenceCount: 0, items: [], currentNextStep: context.nextSteps[0]?.final_body ?? null, currentGoal: context.activeGoals[0]?.body ?? null };
+  if (!itemIds.length) return { student: student as LiveStudent, evidenceCount: 0, items: [], currentNextStep: context.nextSteps[0]?.final_body ?? null, currentGoal: context.activeGoals[0]?.body ?? null, goals: context.activeGoals };
 
   const { data: items, error: itemsError } = await supabase.from("sportfolio_items").select("id,title,teacher_note,student_feedback,occurred_at,class_id,sportfolio_classes(name)").in("id", itemIds).order("occurred_at", { ascending: false });
   if (itemsError) throw itemsError;
@@ -175,6 +177,7 @@ export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfo
     evidenceCount: itemIds.length,
     currentNextStep: context.nextSteps[0]?.final_body ?? null,
     currentGoal: context.activeGoals[0]?.body ?? null,
+    goals: context.activeGoals,
     items: (items ?? []).map((item: any) => ({
       id: item.id,
       title: item.title,
@@ -188,6 +191,23 @@ export async function loadPupilPortfolio(studentId: string): Promise<PupilPortfo
       next_step: nextStepMap.get(item.id) ?? null
     }))
   };
+}
+
+export async function savePupilGoal(studentId: string, body: string, targetDate?: string) {
+  const user = await requireUser();
+  const trimmed = body.trim();
+  if (trimmed.length < 3) throw new Error("Add a clear goal before saving.");
+  const { data, error } = await supabase.from("sportfolio_goals").insert({ student_id: studentId, body: trimmed, target_date: targetDate || null, status: "not_started", created_by: user.id }).select("id").single();
+  if (error) throw error;
+  await supabase.from("sportfolio_audit_log").insert({ actor_user_id: user.id, action: "pupil_goal_created", entity_type: "sportfolio_goal", entity_id: data.id });
+  return data.id as string;
+}
+
+export async function updatePupilGoalStatus(goalId: string, status: PupilGoal["status"]) {
+  const user = await requireUser();
+  const { error } = await supabase.from("sportfolio_goals").update({ status }).eq("id", goalId).eq("created_by", user.id);
+  if (error) throw error;
+  await supabase.from("sportfolio_audit_log").insert({ actor_user_id: user.id, action: `pupil_goal_${status}`, entity_type: "sportfolio_goal", entity_id: goalId });
 }
 
 export async function markReflectionReviewed(reflectionId: string) {
