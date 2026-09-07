@@ -16,6 +16,11 @@ on:
         description: For dns-fix only, type FIX_MYSPORTFOLIO_DNS
         required: false
         type: string
+  push:
+    paths:
+      - '.github/workflows/production-ops.yml'
+      - 'scripts/ops/cloudflare-dns.mjs'
+      - 'scripts/ops/production-health.mjs'
   schedule:
     - cron: '17 */6 * * *'
 
@@ -35,7 +40,7 @@ jobs:
         run: node scripts/ops/production-health.mjs
 
   dns-check:
-    if: ${{ inputs.operation == 'dns-check' }}
+    if: ${{ github.event_name == 'push' || inputs.operation == 'dns-check' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
