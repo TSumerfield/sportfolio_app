@@ -1,8 +1,8 @@
 const token = process.env.CLOUDFLARE_API_TOKEN;
 const zoneId = process.env.CLOUDFLARE_ZONE_ID;
 const mode = process.argv[2] ?? 'check';
-const rootTarget = process.env.SPORTFOLIO_ROOT_TARGET ?? '0d22fe3c2f9ad714.vercel-dns-017.com';
-const wwwTarget = process.env.SPORTFOLIO_WWW_TARGET ?? '';
+const rootTarget = process.env.SPORTFOLIO_ROOT_TARGET?.trim() || '0d22fe3c2f9ad714.vercel-dns-017.com';
+const wwwTarget = process.env.SPORTFOLIO_WWW_TARGET?.trim() || '';
 
 if (!token || !zoneId) {
   console.error('Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ZONE_ID');
