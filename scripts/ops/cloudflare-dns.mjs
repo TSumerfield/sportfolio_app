@@ -2,7 +2,7 @@ const token = process.env.CLOUDFLARE_API_TOKEN;
 const zoneId = process.env.CLOUDFLARE_ZONE_ID;
 const mode = process.argv[2] ?? 'check';
 const rootTarget = process.env.SPORTFOLIO_ROOT_TARGET?.trim() || '0d22fe3c2f9ad714.vercel-dns-017.com';
-const wwwTarget = process.env.SPORTFOLIO_WWW_TARGET?.trim() || '';
+const wwwTarget = process.env.SPORTFOLIO_WWW_TARGET?.trim() || rootTarget;
 
 if (!token || !zoneId) {
   console.error('Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ZONE_ID');
@@ -56,8 +56,7 @@ async function ensureCname(name, target) {
 
 const results = [];
 results.push(await ensureCname('mysportfolio.net', rootTarget));
-if (wwwTarget) results.push(await ensureCname('www.mysportfolio.net', wwwTarget));
-else results.push({ name: 'www.mysportfolio.net', skipped: true, reason: 'SPORTFOLIO_WWW_TARGET not set' });
+results.push(await ensureCname('www.mysportfolio.net', wwwTarget));
 
 console.log(JSON.stringify({ mode, zoneId, results }, null, 2));
 if (mode === 'check' && results.some((r) => r.correct === false)) process.exitCode = 1;
