@@ -2,6 +2,14 @@
 
 This repository is designed so an autonomous coding agent can diagnose and repair the production app without needing a human to shuttle screenshots between services.
 
+## Product strategy source of truth
+
+Before materially changing a Sportfolio flow, read `docs/PRODUCT_STRATEGY_LOCKED.md` and treat it as the current product doctrine.
+
+The immediate build priority is **Session Capture + Attention Engine**. Routine capture must target under 10 seconds, use context-first inheritance, preserve teacher judgement as authoritative, and avoid drifting back toward a portfolio-first or generic dashboard product.
+
+After every coherent app milestone: run the production build and relevant functional checks, deploy, verify the deployed capability, then update the build log. Do not claim completion against a stale production deployment.
+
 ## Production control plane
 
 - GitHub: source, CI and controlled operational workflows
