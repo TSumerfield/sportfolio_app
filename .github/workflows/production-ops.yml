@@ -20,6 +20,7 @@ on:
     paths:
       - '.github/workflows/production-ops.yml'
       - 'scripts/ops/cloudflare-dns.mjs'
+      - 'scripts/ops/public-dns-diagnose.mjs'
       - 'scripts/ops/production-health.mjs'
   schedule:
     - cron: '17 */6 * * *'
@@ -38,6 +39,17 @@ jobs:
           node-version: '22'
       - name: Check public production health
         run: node scripts/ops/production-health.mjs
+
+  public-dns:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Diagnose public DNS through independent resolvers
+        run: node scripts/ops/public-dns-diagnose.mjs
 
   dns-check:
     if: ${{ github.event_name == 'push' || inputs.operation == 'dns-check' }}
