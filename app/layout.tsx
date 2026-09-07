@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./theme.css";
+import "./landing-polish.css";
 import "./live/media.css";
+import "./live/pro.css";
 
 export const metadata: Metadata = {
   title: "Sportfolio",
