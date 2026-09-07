@@ -33,6 +33,7 @@ const webResults = await Promise.all([
   fetchHead('https://mysportfolio.net/'),
   fetchHead('https://mysportfolio.net/login'),
   fetchHead('https://mysportfolio.net/live/session'),
+  fetchHead('https://mysportfolio.net/live/review'),
   fetchHead('https://sportfolio-app-b1gc.vercel.app/'),
 ]);
 
@@ -40,6 +41,7 @@ console.log(JSON.stringify({ checkedAt: new Date().toISOString(), dns: dnsResult
 
 const rootOk = webResults.find((r) => r.url === 'https://mysportfolio.net/')?.ok;
 const sessionOk = webResults.find((r) => r.url === 'https://mysportfolio.net/live/session')?.ok;
-if (!dnsResults.find((r) => r.host === 'mysportfolio.net')?.ok || !rootOk || !sessionOk) {
+const reviewOk = webResults.find((r) => r.url === 'https://mysportfolio.net/live/review')?.ok;
+if (!dnsResults.find((r) => r.host === 'mysportfolio.net')?.ok || !rootOk || !sessionOk || !reviewOk) {
   process.exitCode = 1;
 }
