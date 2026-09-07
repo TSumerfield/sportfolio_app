@@ -48,7 +48,7 @@ export default function Home() {
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>
           <a href="#why">Why Sportfolio</a>
-          <a href="#how" className="land-nav-cta">Explore the build</a>
+          <a href="/live" className="land-nav-cta">Open Sportfolio</a>
         </div>
       </nav>
 
@@ -58,8 +58,8 @@ export default function Home() {
           <h1>Make learning in movement <em>visible.</em></h1>
           <p className="land-lead">Capture the moment. Tag the pupils. Connect it to learning. Build a private evidence record that gets more useful every lesson.</p>
           <div className="land-actions">
-            <a className="land-primary" href="#how">Explore the build <span>↓</span></a>
-            <a className="land-secondary" href="#why">Why Sportfolio</a>
+            <a className="land-primary" href="/live">Open Sportfolio <span>→</span></a>
+            <a className="land-secondary" href="#how">See how it works</a>
           </div>
           <div className="land-proof">
             <span><b>Private</b> by default</span>
@@ -163,11 +163,11 @@ export default function Home() {
       </section>
 
       <section className="pilot">
-        <div><div className="land-kicker">Sportfolio build</div><h2>Built by a PE teacher for the reality of PE.</h2><p>Sportfolio is still in active build. This public page shows the direction and workflow while pupil data remains behind the private product layer.</p></div>
-        <a href="#top" className="land-primary">Back to top</a>
+        <div><div className="land-kicker">Sportfolio pilot</div><h2>Ready when the lesson starts.</h2><p>Open the private teacher workspace to capture evidence, tag pupils and build Sportfolios in real time.</p></div>
+        <a href="/live" className="land-primary">Open Sportfolio →</a>
       </section>
 
-      <footer className="land-footer"><span><strong>SPORTFOLIO</strong> · Private PE evidence portfolios</span><span>Build phase · 2026</span></footer>
+      <footer className="land-footer"><span><strong>SPORTFOLIO</strong> · Private PE evidence portfolios</span><span>Pilot · 2026</span></footer>
     </main>
   );
 }
