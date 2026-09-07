@@ -1,0 +1,72 @@
+name: Sportfolio Production Ops
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Operation to run
+        required: true
+        default: health
+        type: choice
+        options:
+          - health
+          - dns-check
+          - dns-fix
+      confirm:
+        description: For dns-fix only, type FIX_MYSPORTFOLIO_DNS
+        required: false
+        type: string
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    if: ${{ github.event_name == 'schedule' || inputs.operation == 'health' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check public production health
+        run: node scripts/ops/production-health.mjs
+
+  dns-check:
+    if: ${{ inputs.operation == 'dns-check' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect Sportfolio Cloudflare DNS
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          SPORTFOLIO_ROOT_TARGET: ${{ vars.SPORTFOLIO_ROOT_TARGET }}
+          SPORTFOLIO_WWW_TARGET: ${{ vars.SPORTFOLIO_WWW_TARGET }}
+        run: node scripts/ops/cloudflare-dns.mjs check
+
+  dns-fix:
+    if: ${{ inputs.operation == 'dns-fix' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require explicit confirmation
+        run: |
+          test "${{ inputs.confirm }}" = "FIX_MYSPORTFOLIO_DNS" || (echo "Refusing DNS mutation without exact confirmation" && exit 2)
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enforce guarded Sportfolio DNS state
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          SPORTFOLIO_ROOT_TARGET: ${{ vars.SPORTFOLIO_ROOT_TARGET }}
+          SPORTFOLIO_WWW_TARGET: ${{ vars.SPORTFOLIO_WWW_TARGET }}
+        run: node scripts/ops/cloudflare-dns.mjs fix
+      - name: Verify public production health
+        run: node scripts/ops/production-health.mjs
