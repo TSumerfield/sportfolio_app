@@ -27,6 +27,7 @@ type QueueEntry = {
 const DB_NAME = "sportfolio-session-capture";
 const STORE = "pending";
 const DB_VERSION = 1;
+const PILOT_VIDEO_LIMIT_SECONDS = 10;
 
 function openQueue() {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -72,6 +73,16 @@ async function removeQueue(id: string) {
   });
 }
 
+async function readVideoDuration(url: string) {
+  return new Promise<number>((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => resolve(video.duration);
+    video.onerror = () => reject(new Error("Could not verify the video length."));
+    video.src = url;
+  });
+}
+
 export default function SessionCapturePage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [activeClass, setActiveClass] = useState<LiveClass | null>(null);
@@ -81,6 +92,7 @@ export default function SessionCapturePage() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState("");
   const [note, setNote] = useState("");
   const [attention, setAttention] = useState<Attention[]>([]);
   const [online, setOnline] = useState(true);
@@ -176,16 +188,43 @@ export default function SessionCapturePage() {
     setSelectedStudents((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
-  function chooseFile(event: ChangeEvent<HTMLInputElement>) {
+  async function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const next = event.target.files?.[0] ?? null;
+    event.target.value = "";
     if (preview) URL.revokeObjectURL(preview);
     setFile(next);
-    setPreview(next ? URL.createObjectURL(next) : null);
-    event.target.value = "";
+    setMediaError("");
+    if (!next) {
+      setPreview(null);
+      return;
+    }
+    const nextPreview = URL.createObjectURL(next);
+    setPreview(nextPreview);
+    if (!next.type.startsWith("video/")) return;
+
+    try {
+      const duration = await readVideoDuration(nextPreview);
+      if (!Number.isFinite(duration)) throw new Error("Could not verify the video length.");
+      if (duration > PILOT_VIDEO_LIMIT_SECONDS + 0.25) {
+        const message = `This clip is ${duration.toFixed(1)}s. The pilot limit is ${PILOT_VIDEO_LIMIT_SECONDS}s. Record or choose a shorter clip.`;
+        setMediaError(message);
+        setStatus(message);
+      } else {
+        setStatus(`Video ready · ${duration.toFixed(1)}s.`);
+      }
+    } catch {
+      const message = "Sportfolio could not verify this video length. Choose or record another clip before saving.";
+      setMediaError(message);
+      setStatus(message);
+    }
   }
 
   async function saveCapture() {
     if (!activeClass) return;
+    if (mediaError) {
+      setStatus(mediaError);
+      return;
+    }
     if (!selectedStudents.length) {
       setStatus("Tap at least one pupil before saving.");
       return;
@@ -238,6 +277,7 @@ export default function SessionCapturePage() {
     if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
     setFile(null);
+    setMediaError("");
     setSelectedStudents([]);
     setNote("");
   }
@@ -294,10 +334,11 @@ export default function SessionCapturePage() {
           {!preview && <div className="capture-empty"><span>◎</span><h1>Notice the moment.</h1><p>Capture only what helps you remember the learning.</p></div>}
         </div>
         <div className="capture-actions">
-          <label className="capture-primary">Photo<input type="file" accept="image/*" capture="environment" onChange={chooseFile} /></label>
-          <label>5–10s clip<input type="file" accept="video/*" capture="environment" onChange={chooseFile} /></label>
-          <button onClick={() => { if (preview) URL.revokeObjectURL(preview); setPreview(null); setFile(null); }}>Observation only</button>
+          <label className="capture-primary">Photo<input type="file" accept="image/*" capture="environment" onChange={(event) => void chooseFile(event)} /></label>
+          <label>Video · max 10s<input type="file" accept="video/*" capture="environment" onChange={(event) => void chooseFile(event)} /></label>
+          <button onClick={() => { if (preview) URL.revokeObjectURL(preview); setPreview(null); setFile(null); setMediaError(""); setStatus("Observation ready."); }}>Observation only</button>
         </div>
+        {mediaError && <p role="alert" style={{margin:"10px 0 0",fontWeight:800,color:"#a23a20"}}>{mediaError}</p>}
         <label className="quick-note">Optional quick note<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What did you notice?" /></label>
         <div className="attention-card">
           <div><small>ATTENTION ENGINE</small><strong>Who deserves a look next?</strong></div>
@@ -310,7 +351,7 @@ export default function SessionCapturePage() {
         <div className="pupil-grid">{students.map((student) => <button key={student.id} className={selectedStudents.includes(student.id) ? "selected" : ""} onClick={() => toggleStudent(student.id)}><span>{student.first_name.slice(0, 1)}{student.last_name?.slice(0, 1) ?? ""}</span><strong>{student.first_name}</strong><small>{student.last_name ?? student.grade ?? ""}</small></button>)}</div>
         <div className="save-dock">
           <div><small>LEARNING</small><strong>{focus.find((tag) => tag.id === activeTag)?.name ?? "Choose focus"}</strong><p>{status}</p></div>
-          <button disabled={saving || !selectedStudents.length || !activeTag} onClick={() => void saveCapture()}>{saving ? "Saving…" : online ? "Save evidence" : "Save offline"}</button>
+          <button disabled={saving || !!mediaError || !selectedStudents.length || !activeTag} onClick={() => void saveCapture()}>{saving ? "Saving…" : online ? "Save evidence" : "Save offline"}</button>
         </div>
       </section>
     </div>
