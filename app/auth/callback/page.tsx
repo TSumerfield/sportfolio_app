@@ -19,15 +19,17 @@ export default function AuthCallbackPage() {
     }
 
     async function resolveDestination(userId: string) {
-      const [{ data: student, error: studentError }, { data: teacherClass, error: teacherError }] = await Promise.all([
+      const [{ data: student, error: studentError }, { data: pilotAccess, error: accessError }, { data: teacherClass, error: teacherError }] = await Promise.all([
         supabase.from("sportfolio_students").select("id").eq("auth_user_id", userId).maybeSingle(),
+        supabase.from("sportfolio_pilot_access").select("id").limit(1).maybeSingle(),
         supabase.from("sportfolio_classes").select("id").eq("teacher_user_id", userId).limit(1).maybeSingle(),
       ]);
 
       if (studentError) throw studentError;
+      if (accessError) throw accessError;
       if (teacherError) throw teacherError;
       if (student) return "/student";
-      if (teacherClass) return "/live";
+      if (pilotAccess) return teacherClass ? "/live" : "/live/setup";
       return null;
     }
 
@@ -47,7 +49,7 @@ export default function AuthCallbackPage() {
       const session = await waitForSession();
       if (cancelled) return;
       if (!session) {
-        setMessage("Your sign-in completed, but the session did not load. Please try the link again.");
+        setMessage("Your sign-in completed, but the session did not load. Please request a fresh link.");
         return;
       }
 
@@ -56,7 +58,7 @@ export default function AuthCallbackPage() {
         if (cancelled) return;
         if (!destination) {
           await supabase.auth.signOut();
-          setMessage("This account is not assigned to a Sportfolio class or pupil yet.");
+          window.location.replace("/login?access=required");
           return;
         }
         window.location.replace(destination);
@@ -65,11 +67,11 @@ export default function AuthCallbackPage() {
       }
     }
 
-    finish();
+    void finish();
     return () => { cancelled = true; };
   }, []);
 
-  return <main style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#050505",color:"white",fontFamily:"Manrope,Arial"}}>
-    <div style={{textAlign:"center",padding:32}}><div style={{fontSize:42,color:"#ff5a00",fontWeight:900,fontStyle:"italic"}}>S</div><h1>SPORTFOLIO</h1><p style={{color:"#aaa"}}>{message}</p></div>
+  return <main style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#123f32",color:"white",fontFamily:"Manrope,Arial"}}>
+    <div style={{textAlign:"center",padding:32}}><div style={{fontSize:42,color:"#d8ff6a",fontWeight:900,fontStyle:"italic"}}>S</div><h1>SPORTFOLIO</h1><p style={{color:"#c6d1cc"}}>{message}</p></div>
   </main>;
 }
