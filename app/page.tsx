@@ -1,40 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase/client";
 import "./landing.css";
 
 export default function Home() {
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function routeExistingSession() {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
-      if (!user) {
-        if (!cancelled) setChecking(false);
-        return;
-      }
-
-      const [{ data: student }, { data: teacherClass }] = await Promise.all([
-        supabase.from("sportfolio_students").select("id").eq("auth_user_id", user.id).maybeSingle(),
-        supabase.from("sportfolio_classes").select("id").eq("teacher_user_id", user.id).limit(1).maybeSingle(),
-      ]);
-      if (cancelled) return;
-
-      if (student) window.location.replace("/student");
-      else if (teacherClass) window.location.replace("/live");
-      else setChecking(false);
-    }
-    routeExistingSession();
-    return () => { cancelled = true; };
-  }, []);
-
-  if (checking) {
-    return <main style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#f5f2e8",color:"#123f32",fontFamily:"Manrope,Arial"}}>Opening Sportfolio…</main>;
-  }
-
   const strip = ["Capture courtside","Tag pupils fast","Map learning","Save privately","Request reflection","Build progress history"];
 
   return (
@@ -48,7 +16,7 @@ export default function Home() {
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>
           <a href="#why">Why Sportfolio</a>
-          <a href="/live" className="land-nav-cta">Open Sportfolio</a>
+          <a href="/login" className="land-nav-cta">Sign in</a>
         </div>
       </nav>
 
@@ -58,7 +26,7 @@ export default function Home() {
           <h1>Make learning in movement <em>visible.</em></h1>
           <p className="land-lead">Capture the moment. Tag the pupils. Connect it to learning. Build a private evidence record that gets more useful every lesson.</p>
           <div className="land-actions">
-            <a className="land-primary" href="/live">Open Sportfolio <span>→</span></a>
+            <a className="land-primary" href="/login">Sign in to Sportfolio <span>→</span></a>
             <a className="land-secondary" href="#how">See how it works</a>
           </div>
           <div className="land-proof">
@@ -163,8 +131,8 @@ export default function Home() {
       </section>
 
       <section className="pilot">
-        <div><div className="land-kicker">Sportfolio pilot</div><h2>Ready when the lesson starts.</h2><p>Open the private teacher workspace to capture evidence, tag pupils and build Sportfolios in real time.</p></div>
-        <a href="/live" className="land-primary">Open Sportfolio →</a>
+        <div><div className="land-kicker">Sportfolio pilot</div><h2>Ready when the lesson starts.</h2><p>Sign in to the private teacher workspace to capture evidence, tag pupils and build Sportfolios in real time.</p></div>
+        <a href="/login" className="land-primary">Sign in to Sportfolio →</a>
       </section>
 
       <footer className="land-footer"><span><strong>SPORTFOLIO</strong> · Private PE evidence portfolios</span><span>Pilot · 2026</span></footer>
