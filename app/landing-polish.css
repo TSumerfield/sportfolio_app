@@ -1,4 +1,17 @@
-.landing{background:#f4f0e7;color:#18201c}.land-nav{background:#f4f0e7}.land-navlinks{color:#37423c}.land-navlinks a{opacity:1}.land-nav-cta{background:#123f32!important;color:#fff!important;border:1px solid #123f32;box-shadow:0 8px 24px rgba(18,63,50,.12)}.land-primary{background:#123f32!important;color:#fff!important;box-shadow:0 8px 24px rgba(18,63,50,.14)}.land-secondary{background:#fff;border-color:#d8d4ca;color:#202823}.land-lead,.land-section-head p,.problem p,.privacy-copy>p,.intelligence p,.pilot p{opacity:1}.land-lead{color:#4d5852}.land-section-head p{color:#525f58}.problem p{color:#59645e}.privacy-copy>p{color:#56615b}.intelligence p{color:#56615b}.landing .land-kicker{color:#174f3e}.landing .flow-wrap .land-kicker{color:#d8ff6a;font-size:12px;font-weight:700;letter-spacing:.12em}.landing .flow-wrap .land-section-head p{color:#f1f4f2}.flow-step p{color:#eef2ef}.land-footer{color:#606a64}
+.landing{background:#f4f0e7;color:#18201c}.land-nav{background:#f4f0e7}.land-navlinks{color:#37423c}.land-navlinks a{opacity:1}.land-nav-cta{background:#123f32!important;color:#fff!important;border:1px solid #123f32;box-shadow:0 8px 24px rgba(18,63,50,.12)}.land-primary{background:#123f32!important;color:#fff!important;box-shadow:0 8px 24px rgba(18,63,50,.14)}.land-secondary{background:#fff;border-color:#d8d4ca;color:#202823}.land-lead,.land-section-head p,.problem p,.privacy-copy>p,.intelligence p,.pilot p{opacity:1}.land-lead{color:#4d5852}.land-section-head p{color:#525f58}.problem p{color:#59645e}.privacy-copy>p{color:#56615b}.intelligence p{color:#56615b}.landing .land-kicker{color:#174f3e}.land-footer{color:#606a64}
+
+/* Courtside Loop: high-contrast light treatment for iPad and desktop readability. */
+.landing .flow-wrap{background:#eef2e8!important;color:#14251e!important;border-top:1px solid rgba(18,63,50,.12);border-bottom:1px solid rgba(18,63,50,.12)}
+.landing .flow-wrap .land-kicker{color:#174f3e!important;font-size:12px;font-weight:800;letter-spacing:.12em}
+.landing .flow-wrap .land-kicker:before{background:#9fdc3b;box-shadow:none}
+.landing .flow-wrap .land-section-head h2{color:#10251d!important}
+.landing .flow-wrap .land-section-head p{color:#41564d!important;opacity:1!important}
+.landing .flow{background:#cfd9d2;border-color:#cfd9d2}
+.landing .flow-step{background:#fffdf8!important;color:#14251e!important;border-color:#d1dbd4!important}
+.landing .flow-icon{border-color:#b8c9bf!important;background:#f2f6ee;color:#174f3e!important}
+.landing .flow-step h3{color:#14251e!important}
+.landing .flow-step p{color:#4a5d54!important;opacity:1!important}
+.landing .flow-time{color:#174f3e!important;font-weight:800}
 
 /* Courtside Loop: readability is prioritised over card density on iPad. */
 @media(min-width:951px) and (max-width:1240px){
@@ -6,13 +19,13 @@
   .flow-wrap .land-section-head{grid-template-columns:1fr 1fr;gap:52px;margin-bottom:38px;align-items:end}
   .flow-wrap .land-section-head h2{font-size:48px;line-height:1.02}
   .flow-wrap .land-section-head p{font-size:17px;line-height:1.6;max-width:500px}
-  .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;background:transparent;border:0;overflow:visible}
-  .flow-step{min-height:238px;border:1px solid #4d5953;border-radius:14px;padding:28px 30px;background:#202722}
+  .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;background:transparent!important;border:0;overflow:visible}
+  .flow-step{min-height:238px;border:1px solid #d1dbd4;border-radius:14px;padding:28px 30px;background:#fffdf8!important}
   .flow-step:last-child{grid-column:1/-1;min-height:210px}
-  .flow-icon{width:48px;height:48px;margin-bottom:26px;font-size:14px;border-color:#5b6761}
+  .flow-icon{width:48px;height:48px;margin-bottom:26px;font-size:14px}
   .flow-step h3{font-size:24px;line-height:1.2;margin-bottom:10px}
   .flow-step p{font-size:16px;line-height:1.55;max-width:520px}
-  .flow-time{font-size:11px;font-weight:700;letter-spacing:.08em}
+  .flow-time{font-size:11px;font-weight:800;letter-spacing:.08em}
 }
 
 @media(min-width:621px) and (max-width:950px){
@@ -20,13 +33,13 @@
   .flow-wrap .land-section-head{margin-bottom:34px}
   .flow-wrap .land-section-head h2{font-size:44px}
   .flow-wrap .land-section-head p{font-size:16px;line-height:1.6}
-  .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;background:transparent;border:0;overflow:visible}
-  .flow-step{min-height:220px;border:1px solid #4d5953;border-radius:12px;padding:24px}
+  .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;background:transparent!important;border:0;overflow:visible}
+  .flow-step{min-height:220px;border:1px solid #d1dbd4;border-radius:12px;padding:24px}
   .flow-step:last-child{grid-column:1/-1}
   .flow-icon{width:46px;height:46px;margin-bottom:22px;font-size:14px}
   .flow-step h3{font-size:22px;line-height:1.2}
   .flow-step p{font-size:15px;line-height:1.55}
-  .flow-time{font-size:10px;font-weight:700}
+  .flow-time{font-size:10px;font-weight:800}
 }
 
-@media(max-width:620px){.land-navlinks{gap:8px}.land-nav-cta{font-size:11px}.land-hero{padding-top:34px}.land-hero h1{font-size:48px;line-height:.98}.land-proof{gap:12px}.pilot .land-primary{width:100%}.flow-wrap .land-section-head p{font-size:16px;line-height:1.6}.flow{gap:10px;background:transparent;border:0;overflow:visible}.flow-step{min-height:190px;border:1px solid #4d5953;border-radius:12px;padding:24px}.flow-icon{width:46px;height:46px;font-size:14px}.flow-step h3{font-size:22px}.flow-step p{font-size:15px;line-height:1.55}.flow-time{font-size:10px;font-weight:700}}
+@media(max-width:620px){.land-navlinks{gap:8px}.land-nav-cta{font-size:11px}.land-hero{padding-top:34px}.land-hero h1{font-size:48px;line-height:.98}.land-proof{gap:12px}.pilot .land-primary{width:100%}.flow-wrap .land-section-head p{font-size:16px;line-height:1.6}.flow{gap:10px;background:transparent!important;border:0;overflow:visible}.flow-step{min-height:190px;border:1px solid #d1dbd4;border-radius:12px;padding:24px}.flow-icon{width:46px;height:46px;font-size:14px}.flow-step h3{font-size:22px}.flow-step p{font-size:15px;line-height:1.55}.flow-time{font-size:10px;font-weight:800}}
