@@ -16,7 +16,7 @@ export default function Home() {
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>
           <a href="#why">Why Sportfolio</a>
-          <a href="/login" className="land-nav-cta">Sign in</a>
+          <a href="/login?signin=1" className="land-nav-cta">Sign in</a>
         </div>
       </nav>
 
@@ -26,7 +26,7 @@ export default function Home() {
           <h1>Make learning in movement <em>visible.</em></h1>
           <p className="land-lead">Capture the moment. Tag the pupils. Connect it to learning. Build a private evidence record that gets more useful every lesson.</p>
           <div className="land-actions">
-            <a className="land-primary" href="/login">Sign in to Sportfolio <span>→</span></a>
+            <a className="land-primary" href="/login?signin=1">Sign in to Sportfolio <span>→</span></a>
             <a className="land-secondary" href="#how">See how it works</a>
           </div>
           <div className="land-proof">
@@ -132,7 +132,7 @@ export default function Home() {
 
       <section className="pilot">
         <div><div className="land-kicker">Sportfolio pilot</div><h2>Ready when the lesson starts.</h2><p>Sign in to the private teacher workspace to capture evidence, tag pupils and build Sportfolios in real time.</p></div>
-        <a href="/login" className="land-primary">Sign in to Sportfolio →</a>
+        <a href="/login?signin=1" className="land-primary">Sign in to Sportfolio →</a>
       </section>
 
       <footer className="land-footer"><span><strong>SPORTFOLIO</strong> · Private PE evidence portfolios</span><span>Pilot · 2026</span></footer>
