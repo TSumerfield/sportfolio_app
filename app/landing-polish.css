@@ -1,6 +1,6 @@
 .landing{background:#f4f0e7;color:#18201c}.land-nav{background:#f4f0e7}.land-navlinks{color:#37423c}.land-navlinks a{opacity:1}.land-nav-cta{background:#123f32!important;color:#fff!important;border:1px solid #123f32;box-shadow:0 8px 24px rgba(18,63,50,.12)}.land-primary{background:#123f32!important;color:#fff!important;box-shadow:0 8px 24px rgba(18,63,50,.14)}.land-secondary{background:#fff;border-color:#d8d4ca;color:#202823}.land-lead,.land-section-head p,.problem p,.privacy-copy>p,.intelligence p,.pilot p{opacity:1}.land-lead{color:#4d5852}.land-section-head p{color:#525f58}.problem p{color:#59645e}.privacy-copy>p{color:#56615b}.intelligence p{color:#56615b}.landing .land-kicker{color:#174f3e}.land-footer{color:#606a64}
 
-/* Courtside Loop: high-contrast light treatment for iPad and desktop readability. */
+/* Courtside Loop: light, high-contrast treatment for iPad and desktop readability. */
 .landing .flow-wrap{background:#eef2e8!important;color:#14251e!important;border-top:1px solid rgba(18,63,50,.12);border-bottom:1px solid rgba(18,63,50,.12)}
 .landing .flow-wrap .land-kicker{color:#174f3e!important;font-size:12px;font-weight:800;letter-spacing:.12em}
 .landing .flow-wrap .land-kicker:before{background:#9fdc3b;box-shadow:none}
@@ -13,19 +13,17 @@
 .landing .flow-step p{color:#4a5d54!important;opacity:1!important}
 .landing .flow-time{color:#174f3e!important;font-weight:800}
 
-/* Courtside Loop: readability is prioritised over card density on iPad. */
 @media(min-width:951px) and (max-width:1240px){
   .flow-wrap .land-section{padding:76px 40px 84px}
-  .flow-wrap .land-section-head{grid-template-columns:1fr 1fr;gap:52px;margin-bottom:38px;align-items:end}
-  .flow-wrap .land-section-head h2{font-size:48px;line-height:1.02}
-  .flow-wrap .land-section-head p{font-size:17px;line-height:1.6;max-width:500px}
-  .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;background:transparent!important;border:0;overflow:visible}
-  .flow-step{min-height:238px;border:1px solid #d1dbd4;border-radius:14px;padding:28px 30px;background:#fffdf8!important}
-  .flow-step:last-child{grid-column:1/-1;min-height:210px}
-  .flow-icon{width:48px;height:48px;margin-bottom:26px;font-size:14px}
-  .flow-step h3{font-size:24px;line-height:1.2;margin-bottom:10px}
-  .flow-step p{font-size:16px;line-height:1.55;max-width:520px}
-  .flow-time{font-size:11px;font-weight:800;letter-spacing:.08em}
+  .flow-wrap .land-section-head{grid-template-columns:.8fr 1.2fr;gap:44px;margin-bottom:38px;align-items:end}
+  .flow-wrap .land-section-head h2{font-size:50px;line-height:1.02}
+  .flow-wrap .land-section-head p{font-size:16px;line-height:1.6;max-width:520px}
+  .flow{grid-template-columns:repeat(5,minmax(0,1fr));gap:1px}
+  .flow-step{min-height:250px;padding:22px 18px}
+  .flow-icon{width:44px;height:44px;margin-bottom:30px;font-size:14px}
+  .flow-step h3{font-size:17px;line-height:1.2;margin-bottom:9px}
+  .flow-step p{font-size:13px;line-height:1.55}
+  .flow-time{font-size:9px;font-weight:800;letter-spacing:.08em}
 }
 
 @media(min-width:621px) and (max-width:950px){
