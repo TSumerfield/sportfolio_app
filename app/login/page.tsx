@@ -38,7 +38,7 @@ export default function LoginPage() {
   return <main className="login-page">
     <section className="login-panel">
       <a className="login-brand" href="/"><span>S</span> SPORTFOLIO</a>
-      <div className="login-copy"><small>PRIVATE PE EVIDENCE · PILOT</small><h1>Sign in courtside.</h1><p>Sportfolio uses a secure email link—no password to remember. Pilot accounts must be approved before they can create classes or access pupil evidence.</p></div>
+      <div className="login-copy"><small>PRIVATE PE EVIDENCE · PILOT</small><h1>Sign in to Sportfolio.</h1><p>Use your approved email address to receive a secure sign-in link. No password to remember, and pupil evidence stays behind your authorised account.</p></div>
       <form onSubmit={sendLink} className="login-form"><label>Email address<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.org" disabled={sending} /></label><button disabled={sending}>{sending ? "Sending…" : "Send secure sign-in link"}</button></form>
       <p className="login-status" role="status">{status}</p>
       <div className="login-trust"><span>Private media</span><span>5-class pilot</span><span>iPad first</span></div>
