@@ -8,10 +8,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("Pilot access is invite-only. Use the email address that was approved for Sportfolio.");
   const [sending, setSending] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("access") === "required") setStatus("That account does not currently have pilot access. Ask Toby to add your email, then try again.");
+    const explicitSignIn = params.get("signin") === "1";
+    const accessRequired = params.get("access") === "required";
+
+    if (!explicitSignIn && !accessRequired) {
+      window.location.replace("/");
+      return;
+    }
+
+    if (accessRequired) setStatus("That account does not currently have pilot access. Ask Toby to add your email, then try again.");
+    setReady(true);
   }, []);
 
   async function sendLink(event: FormEvent) {
@@ -34,6 +44,8 @@ export default function LoginPage() {
     }
     setStatus("Check your email. Open the Sportfolio sign-in link on this device.");
   }
+
+  if (!ready) return <main className="login-page" aria-busy="true" />;
 
   return <main className="login-page">
     <section className="login-panel">
