@@ -13,6 +13,6 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: "pkce",
+    flowType: "implicit",
   },
 });
