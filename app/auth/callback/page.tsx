@@ -9,86 +9,62 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function waitForSession() {
-      for (let attempt = 0; attempt < 12; attempt += 1) {
+    async function waitForSession(timeoutMs = 10000) {
+      const started = Date.now();
+      while (Date.now() - started < timeoutMs) {
         const { data } = await supabase.auth.getSession();
         if (data.session) return data.session;
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await new Promise((resolve) => setTimeout(resolve, 250));
       }
       return null;
     }
 
-    async function resolveDestination(userId: string, email: string | undefined) {
-      const normalizedEmail = email?.trim().toLowerCase();
-
-      const studentQuery = supabase
-        .from("sportfolio_students")
-        .select("id")
-        .eq("auth_user_id", userId)
-        .maybeSingle();
-
-      const accessQuery = normalizedEmail
-        ? supabase
-            .from("sportfolio_pilot_access")
-            .select("id")
-            .eq("email", normalizedEmail)
-            .eq("active", true)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null });
-
-      const teacherClassQuery = supabase
-        .from("sportfolio_classes")
-        .select("id")
-        .eq("teacher_user_id", userId)
-        .limit(1)
-        .maybeSingle();
-
-      const [studentResult, accessResult, teacherClassResult] = await Promise.all([
-        studentQuery,
-        accessQuery,
-        teacherClassQuery,
+    async function resolveDestination(userId: string) {
+      const [{ data: student, error: studentError }, { data: teacherClass, error: teacherError }] = await Promise.all([
+        supabase.from("sportfolio_students").select("id").eq("auth_user_id", userId).maybeSingle(),
+        supabase.from("sportfolio_classes").select("id").eq("teacher_user_id", userId).limit(1).maybeSingle(),
       ]);
 
-      if (studentResult.error) throw studentResult.error;
-      if (accessResult.error) throw accessResult.error;
-      if (teacherClassResult.error) throw teacherClassResult.error;
-
-      if (studentResult.data) return "/student";
-      if (accessResult.data) return teacherClassResult.data ? "/live" : "/live/setup";
-      return null;
+      if (studentError) throw studentError;
+      if (teacherError) throw teacherError;
+      if (student) return "/student";
+      return teacherClass ? "/live" : "/live/setup";
     }
 
     async function finish() {
       const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const authError = url.searchParams.get("error_description") || hash.get("error_description");
+      if (authError) {
+        setMessage(`Sign-in link failed: ${authError}`);
+        return;
+      }
 
+      const code = url.searchParams.get("code");
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          if (!cancelled) setMessage("We could not complete sign-in. Request a new link.");
+          setMessage("This sign-in link could not be exchanged. Request a fresh link after this deployment.");
           return;
         }
-        window.history.replaceState({}, document.title, "/auth/callback");
       }
 
       const session = await waitForSession();
       if (cancelled) return;
       if (!session) {
-        setMessage("Your sign-in completed, but the session did not load. Please request a fresh link.");
+        setMessage("The email was confirmed, but no browser session was created. Request one fresh sign-in link and open it in this browser.");
         return;
       }
 
       try {
-        const destination = await resolveDestination(session.user.id, session.user.email);
+        const destination = await resolveDestination(session.user.id);
         if (cancelled) return;
-        if (!destination) {
-          await supabase.auth.signOut();
-          window.location.replace("/login?access=required");
-          return;
-        }
+        window.history.replaceState({}, document.title, "/auth/callback");
         window.location.replace(destination);
-      } catch {
-        if (!cancelled) setMessage("We could not confirm your Sportfolio access. Please try signing in again.");
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : "We could not open your Sportfolio workspace. Please try again.");
+        }
       }
     }
 
@@ -97,6 +73,6 @@ export default function AuthCallbackPage() {
   }, []);
 
   return <main style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#123f32",color:"white",fontFamily:"Manrope,Arial"}}>
-    <div style={{textAlign:"center",padding:32}}><div style={{fontSize:42,color:"#d8ff6a",fontWeight:900,fontStyle:"italic"}}>S</div><h1>SPORTFOLIO</h1><p style={{color:"#c6d1cc"}}>{message}</p></div>
+    <div style={{textAlign:"center",padding:32,maxWidth:560}}><div style={{fontSize:42,color:"#d8ff6a",fontWeight:900,fontStyle:"italic"}}>S</div><h1>SPORTFOLIO</h1><p style={{color:"#c6d1cc",lineHeight:1.6}}>{message}</p></div>
   </main>;
 }
