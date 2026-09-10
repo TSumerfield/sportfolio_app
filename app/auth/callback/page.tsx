@@ -18,18 +18,43 @@ export default function AuthCallbackPage() {
       return null;
     }
 
-    async function resolveDestination(userId: string) {
-      const [{ data: student, error: studentError }, { data: pilotAccess, error: accessError }, { data: teacherClass, error: teacherError }] = await Promise.all([
-        supabase.from("sportfolio_students").select("id").eq("auth_user_id", userId).maybeSingle(),
-        supabase.from("sportfolio_pilot_access").select("id").limit(1).maybeSingle(),
-        supabase.from("sportfolio_classes").select("id").eq("teacher_user_id", userId).limit(1).maybeSingle(),
+    async function resolveDestination(userId: string, email: string | undefined) {
+      const normalizedEmail = email?.trim().toLowerCase();
+
+      const studentQuery = supabase
+        .from("sportfolio_students")
+        .select("id")
+        .eq("auth_user_id", userId)
+        .maybeSingle();
+
+      const accessQuery = normalizedEmail
+        ? supabase
+            .from("sportfolio_pilot_access")
+            .select("id")
+            .eq("email", normalizedEmail)
+            .eq("active", true)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      const teacherClassQuery = supabase
+        .from("sportfolio_classes")
+        .select("id")
+        .eq("teacher_user_id", userId)
+        .limit(1)
+        .maybeSingle();
+
+      const [studentResult, accessResult, teacherClassResult] = await Promise.all([
+        studentQuery,
+        accessQuery,
+        teacherClassQuery,
       ]);
 
-      if (studentError) throw studentError;
-      if (accessError) throw accessError;
-      if (teacherError) throw teacherError;
-      if (student) return "/student";
-      if (pilotAccess) return teacherClass ? "/live" : "/live/setup";
+      if (studentResult.error) throw studentResult.error;
+      if (accessResult.error) throw accessResult.error;
+      if (teacherClassResult.error) throw teacherClassResult.error;
+
+      if (studentResult.data) return "/student";
+      if (accessResult.data) return teacherClassResult.data ? "/live" : "/live/setup";
       return null;
     }
 
@@ -54,7 +79,7 @@ export default function AuthCallbackPage() {
       }
 
       try {
-        const destination = await resolveDestination(session.user.id);
+        const destination = await resolveDestination(session.user.id, session.user.email);
         if (cancelled) return;
         if (!destination) {
           await supabase.auth.signOut();
