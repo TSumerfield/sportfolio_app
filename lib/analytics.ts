@@ -2,52 +2,51 @@
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 
-type PostHogClient = {
-  capture: (event: string, properties?: AnalyticsProperties) => void;
-  identify: (distinctId: string) => void;
-  reset: () => void;
-};
+const POSTHOG_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN || "phc_rH4P6CPgZ9FdCGRx3NdvL6G9NuLbfhG8HpubBgBM3nu4";
+const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
+const STORAGE_KEY = "sportfolio:posthog-distinct-id";
 
-let posthogPromise: Promise<PostHogClient | null> | null = null;
-
-async function client(): Promise<PostHogClient | null> {
+function getDistinctId() {
   if (typeof window === "undefined") return null;
-  const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
-  if (!token) return null;
-
-  if (!posthogPromise) {
-    posthogPromise = import("posthog-js")
-      .then(({ default: posthog }) => {
-        if (!posthog.__loaded) {
-          posthog.init(token, {
-            api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com",
-            defaults: "2026-05-30",
-            autocapture: false,
-            capture_pageview: false,
-            capture_pageleave: false,
-            disable_session_recording: true,
-            person_profiles: "identified_only",
-          });
-        }
-        return posthog as PostHogClient;
-      })
-      .catch(() => null);
-  }
-
-  return posthogPromise;
+  return sessionStorage.getItem(STORAGE_KEY);
 }
 
 export async function identifyTeacher(teacherUserId: string) {
-  const posthog = await client();
-  posthog?.identify(teacherUserId);
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(STORAGE_KEY, teacherUserId);
 }
 
 export async function trackProductEvent(event: string, properties?: AnalyticsProperties) {
-  const posthog = await client();
-  posthog?.capture(event, properties);
+  if (typeof window === "undefined" || !POSTHOG_TOKEN) return;
+  const distinctId = getDistinctId();
+  if (!distinctId) return;
+
+  const cleanProperties = Object.fromEntries(
+    Object.entries(properties ?? {}).filter(([, value]) => value !== undefined)
+  );
+
+  try {
+    await fetch(`${POSTHOG_HOST}/i/v0/e/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        api_key: POSTHOG_TOKEN,
+        event,
+        properties: {
+          distinct_id: distinctId,
+          $process_person_profile: true,
+          app: "sportfolio",
+          ...cleanProperties,
+        },
+      }),
+    });
+  } catch {
+    // Analytics must never interrupt teaching or evidence capture.
+  }
 }
 
 export async function resetAnalytics() {
-  const posthog = await client();
-  posthog?.reset();
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(STORAGE_KEY);
 }
