@@ -1,0 +1,39 @@
+:root{--sf-green:#123f32;--sf-green-2:#173f31;--sf-green-3:#245c48;--sf-lime:#d8ff6a;--sf-cream:#f4f0e6;--sf-paper:#fffdf7;--sf-ink:#121915;--sf-muted:#667068;--sf-border:#d9d3c6}
+
+/* Shared teacher workspace: remove the older orange/black visual language. */
+.live-shell{background:var(--sf-cream);color:var(--sf-ink)}
+.live-shell .live-sidebar{background:var(--sf-green);color:#fff}
+.live-shell .live-brand>span{background:var(--sf-lime);color:var(--sf-green)}
+.live-shell .live-sidebar nav button,.live-shell .signout{color:#c8d4cf}
+.live-shell .live-sidebar nav button.active{background:var(--sf-green-2);color:#fff}
+.live-shell .live-sidebar nav button.capture-nav{color:var(--sf-lime)}
+.live-shell .signout{border-color:#ffffff26}
+.live-shell .live-content>header{background:var(--sf-paper);border-color:var(--sf-border)}
+.live-shell .live-badge{background:#e7f3df;color:var(--sf-green)}
+.live-shell .eyebrow-orange{color:var(--sf-green-3)}
+.live-shell .class-chip{background:var(--sf-green);color:#fff}
+.live-shell .class-chip b{color:var(--sf-lime)}
+.live-shell .camera-view{background:linear-gradient(145deg,#123f32,#245c48 48%,#0f2f25)}
+.live-shell .camera-focus{color:var(--sf-lime)}
+.live-shell .camera-label,.live-shell .file-pill{background:#0f2f25e8}
+.live-shell .file-pill span,.live-shell .record span{background:var(--sf-lime);color:var(--sf-green)}
+.live-shell .capture-source{border-color:#c7d0ca;color:var(--sf-green)}
+.live-shell .selected-mode{background:var(--sf-green);border-color:var(--sf-green);color:#fff}
+.live-shell .student-choice.selected{background:#eef6e8;border-color:#9cbd79}
+.live-shell .student-choice.selected>span{background:var(--sf-green);color:#fff}
+.live-shell .student-choice>b:last-child{color:var(--sf-green)}
+.live-shell .context-next{border-left-color:var(--sf-green)}
+.live-shell .reflection-toggle input{accent-color:var(--sf-green)}
+.live-shell .save-live{background:var(--sf-green);color:#fff}
+.live-shell .live-tags button.active{background:var(--sf-green);border-color:var(--sf-green);color:#fff}
+.live-shell .live-loading{background:var(--sf-green)}
+.live-shell .live-loading a{color:var(--sf-lime)}
+.live-shell .class-card{border-color:var(--sf-border);background:var(--sf-paper)}
+.live-shell .class-card:hover{border-color:#9aaa9f}
+.live-shell .class-card>b,.live-shell .primary-capture,.live-shell .pupil-review-card>b{color:var(--sf-green)}
+.live-shell .primary-capture{background:var(--sf-green);color:#fff}
+.live-shell .pupil-avatar{background:#dce8df;color:var(--sf-green)}
+.live-shell .next-step-banner{border-left-color:var(--sf-green)}
+
+.setup-shell,.session-shell{background:var(--sf-cream)}
+.setup-card,.session-context,.attention-card,.pupil-stage{background:var(--sf-paper)}
