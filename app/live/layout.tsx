@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect } from "react";
-import { identifyTeacher, resetAnalytics, trackProductEvent } from "../../lib/analytics";
+import { identifyTeacher, trackProductEvent } from "../../lib/analytics";
 import { supabase } from "../../lib/supabase/client";
 
 export default function LiveLayout({ children }: { children: ReactNode }) {
