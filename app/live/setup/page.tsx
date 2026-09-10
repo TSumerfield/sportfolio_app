@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { trackProductEvent } from "../../../lib/analytics";
 import { supabase } from "../../../lib/supabase/client";
 import "./setup.css";
 
@@ -112,6 +113,11 @@ export default function PilotSetupPage() {
       if (pupilRows.length) await addStudentsToClass(newClass.id, pupilRows, auth.user.id);
       setClasses((current) => [...current, newClass as PilotClass]);
       setExistingClassId((current) => current || newClass.id);
+      await trackProductEvent("class_created", {
+        pupil_count: pupilRows.length,
+        class_number: classes.length + 1,
+        has_activity: Boolean(activity.trim()),
+      });
       setClassName("");
       setRoster([emptyPupil()]);
       setStatus(`${newClass.name} created with ${pupilRows.length} pupil${pupilRows.length === 1 ? "" : "s"}.`);
