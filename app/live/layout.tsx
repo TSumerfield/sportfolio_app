@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { identifyTeacher, trackProductEvent } from "../../lib/analytics";
 import { supabase } from "../../lib/supabase/client";
+import "./theme.css";
 
 export default function LiveLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -12,7 +13,7 @@ export default function LiveLayout({ children }: { children: ReactNode }) {
       const { data } = await supabase.auth.getSession();
       if (!active) return;
       if (!data.session) {
-        window.location.replace("/login");
+        window.location.replace("/login?signin=1");
         return;
       }
       await identifyTeacher(data.session.user.id);
