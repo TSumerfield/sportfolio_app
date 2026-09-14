@@ -134,24 +134,25 @@ export default function PilotSetupPage() {
     let cancelled = false;
     async function load() {
       const { data: auth, error: authError } = await supabase.auth.getUser();
+      let currentUser = auth.user;
       if (authError && isJwtClockError(authError)) {
         const refreshed = await supabase.auth.refreshSession();
         if (refreshed.error || !refreshed.data.user) {
           if (!cancelled) { setStatus(friendlyError(refreshed.error ?? authError, "Could not refresh your session.")); setLoadFailed(true); }
           return;
         }
-        auth.user = refreshed.data.user;
+        currentUser = refreshed.data.user;
       }
-      if (!auth.user) {
+      if (!currentUser) {
         window.location.replace("/login?signin=1");
         return;
       }
-      setUserId(auth.user.id);
+      setUserId(currentUser.id);
 
       async function fetchSetup() {
         return Promise.all([
-          supabase.from("sportfolio_classes").select("id,name,academic_year,activity").eq("teacher_user_id", auth.user!.id).order("created_at"),
-          supabase.from("sportfolio_tags").select("id,name,category,created_by").eq("created_by", auth.user!.id).eq("category", "focus").order("name"),
+          supabase.from("sportfolio_classes").select("id,name,academic_year,activity").eq("teacher_user_id", currentUser.id).order("created_at"),
+          supabase.from("sportfolio_tags").select("id,name,category,created_by").eq("created_by", currentUser.id).eq("category", "focus").order("name"),
         ]);
       }
 
