@@ -151,8 +151,8 @@ export default function PilotSetupPage() {
 
       async function fetchSetup() {
         return Promise.all([
-          supabase.from("sportfolio_classes").select("id,name,academic_year,activity").eq("teacher_user_id", currentUser.id).order("created_at"),
-          supabase.from("sportfolio_tags").select("id,name,category,created_by").eq("created_by", currentUser.id).eq("category", "focus").order("name"),
+          supabase.from("sportfolio_classes").select("id,name,academic_year,activity").eq("teacher_user_id", currentUser!.id).order("created_at"),
+          supabase.from("sportfolio_tags").select("id,name,category,created_by").eq("created_by", currentUser!.id).eq("category", "focus").order("name"),
         ]);
       }
 
