@@ -1,5 +1,7 @@
 "use client";
 
+import { isLocalRuntime, isNonProductionDeployment } from "./runtime-env";
+
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 
 const POSTHOG_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN || "phc_rH4P6CPgZ9FdCGRx3NdvL6G9NuLbfhG8HpubBgBM3nu4";
@@ -18,6 +20,9 @@ export async function identifyTeacher(teacherUserId: string) {
 
 export async function trackProductEvent(event: string, properties?: AnalyticsProperties) {
   if (typeof window === "undefined" || !POSTHOG_TOKEN) return;
+  // Local dev, tests, verification and preview deployments never send events
+  // to the real PostHog project.
+  if (isLocalRuntime() || isNonProductionDeployment()) return;
   const distinctId = getDistinctId();
   if (!distinctId) return;
 
