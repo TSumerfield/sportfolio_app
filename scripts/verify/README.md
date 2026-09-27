@@ -25,3 +25,9 @@ Known differences from production:
   roles; sign-in is a locally signed session, not GoTrue email OTP.
 - Runs `next build` into `.next/` with local-only env; rebuild before any
   manual production-style run.
+
+Production schema trigger (decided 2026-09-27; do it just in time, not before):
+before the next material change that touches Supabase persistence or schema,
+first obtain a structure-only representation of the production schema and the
+relevant access policies (no pupil data, no secrets) and make this local
+environment match it, replacing `reconstructed-untracked-schema.sql`.
