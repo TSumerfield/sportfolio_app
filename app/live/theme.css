@@ -37,3 +37,17 @@
 
 .setup-shell,.session-shell{background:var(--sf-cream)}
 .setup-card,.session-context,.attention-card,.pupil-stage{background:var(--sf-paper)}
+
+
+/* Capture Progress identity: development made visible */
+:root{--sf-green:#123f32;--sf-green-2:#173f31;--sf-green-3:#2c7058;--sf-lime:#b9ee62;--sf-cream:#f7f3e9;--sf-paper:#fffdf8;--sf-ink:#101714;--sf-muted:#667068;--sf-border:#d9d3c6}
+.live-shell .live-brand>span{
+  position:relative;overflow:hidden;font-size:0;background:transparent;color:transparent;width:32px;height:32px;border-radius:0;
+}
+.live-shell .live-brand>span:before,.live-shell .live-brand>span:after{
+  content:"";position:absolute;width:72%;height:42%;border-radius:999px 999px 999px 5px;
+}
+.live-shell .live-brand>span:before{left:4%;top:8%;background:#39b77e}
+.live-shell .live-brand>span:after{right:4%;bottom:8%;background:#4664ed;transform:rotate(180deg)}
+.live-shell .live-sidebar{background:#123f32}
+.live-shell .save-live,.live-shell .primary-capture,.live-shell .selected-mode,.live-shell .live-tags button.active{background:#123f32;border-color:#123f32}
