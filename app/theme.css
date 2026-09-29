@@ -174,3 +174,18 @@ h1,h2,h3,strong{color:#0a0a0a}
   .mobile-nav button span{color:#aaa}
   .mobile-nav .capture-mobile{background:var(--sport-orange);color:#fff}
 }
+
+
+/* Capture Progress identity */
+:root{--ink:#101714;--cream:#f7f3e9;--navy:#123f32;--lime:#b9ee62;--sport-orange:#b9ee62;--sport-orange-soft:#eef8dc;--sport-black:#101714}
+.sidebar{background:#123f32}
+.mark{position:relative;width:34px;height:34px;background:transparent;overflow:hidden}
+.mark:before,.mark:after{content:"";position:absolute;width:72%;height:42%;border-radius:999px 999px 999px 5px;transform:none;clip-path:none}
+.mark:before{left:4px;top:3px;background:#39b77e}
+.mark:after{right:1px;left:auto;bottom:3px;background:#4664ed;transform:rotate(180deg)}
+.sidebar button.active{background:#1d5645}.avatar.small{background:#b9ee62;color:#123f32}
+.primary,.save-capture{background:#123f32;box-shadow:0 8px 20px rgba(18,63,50,.16)}
+.primary:hover,.save-capture:hover{background:#1d5645}.text-button{color:#2c7058}
+.step.active{background:#123f32;border-color:#123f32}.step.done{background:#101714;border-color:#101714}
+.person.selected{background:#eef8dc;border-color:#a8c875;color:#123f32}.person b{color:#2c7058}
+.timeline-item:before{background:#b9ee62;border-color:#123f32}.goal-banner{background:#eef8dc;color:#123f32}
