@@ -13,6 +13,7 @@ export default function Home() {
           SPORTFOLIO
         </a>
         <div className="land-navlinks">
+          <a href="/report-assistant">Free report tool</a>
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>
           <a href="#why">Why Sportfolio</a>
@@ -26,7 +27,7 @@ export default function Home() {
           <h1>Make learning in movement <em>visible.</em></h1>
           <p className="land-lead">Capture the moment. Tag the pupils. Connect it to learning. Build a private evidence record that gets more useful every lesson.</p>
           <div className="land-actions">
-            <a className="land-primary" href="/login?signin=1">Sign in to Sportfolio <span>→</span></a>
+            <a className="land-primary" href="/report-assistant">Try the free PE Report Assistant <span>→</span></a>
             <a className="land-secondary" href="#how">See how it works</a>
           </div>
           <div className="land-proof">
