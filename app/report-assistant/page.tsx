@@ -3,6 +3,8 @@
 import "./report-assistant.css";
 import { useState } from "react";
 
+// Acquisition surface: deliberately deterministic and zero-login. Teacher judgement remains the source data.
+
 function clean(v:string){return v.trim().replace(/[.]+$/,"");}
 
 export default function ReportAssistant(){
